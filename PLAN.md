@@ -29,10 +29,11 @@
 | 폴더 | `MatzipNote/` |
 | Group / Artifact | `com.study` / `matzip-note` |
 | 기본 패키지 | `com.study.matzip` |
+| IDE | STS 5.0.1.RELEASE |
 | 빌드 | Maven, Java 21, Spring Boot 4.x |
 | DB | MySQL, 스키마 `matzip` |
 | View | JSP (`/WEB-INF/views/`) |
-| 실행 | IDE 또는 `mvn spring-boot:run` (JSP는 실행 jar에서 제대로 동작하지 않음) |
+| 실행 | STS `Run As > Spring Boot App` (JSP는 실행 jar에서 제대로 동작하지 않으므로 jar로 배포해 실행하지 않음) |
 
 ### 패키지 구조
 
@@ -75,7 +76,7 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 ### M1. 프로젝트 세팅 👀 · 1~2시간
 교안: SpringBoot, Logging · 샘플: FW_05 `pom.xml`, FW_07 `application.properties`
 
-- [ ] start.spring.io로 프로젝트 생성 (Spring Web, MyBatis, MySQL Driver, Lombok, DevTools)
+- [ ] STS `File > New > Spring Starter Project`로 프로젝트 생성 (Maven, Java 21 / 의존성: Spring Web, MyBatis, MySQL Driver, Lombok, DevTools)
 - [ ] JSP 의존성 수동 추가 (`tomcat-embed-jasper`, JSTL 2개) + `spring.mvc.view.prefix/suffix`
 - [ ] `application.properties`: DB 접속, HikariCP, MyBatis, 로깅 레벨
 - [ ] `schema.sql`로 DB와 테이블 생성

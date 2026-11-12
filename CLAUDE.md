@@ -47,6 +47,7 @@ Boot 4 의존성 이름: `spring-boot-starter-webmvc-test`(@WebMvcTest), `spring
 
 ## 기술 스택 (교안 기준)
 
+- IDE: **STS 5.0.1.RELEASE** (Eclipse 기반). 프로젝트 생성·실행·테스트 안내는 STS 메뉴 기준으로 한다 (예: `File > New > Spring Starter Project`, `Run As > Spring Boot App`, `Run As > JUnit Test`). IntelliJ 단축키로 안내하지 않는다.
 - Spring Boot 4.x / Spring Framework 7 / Java 21 / Maven
 - MyBatis (`mybatis-spring-boot-starter`), MySQL, HikariCP
 - View: JSP
