@@ -56,6 +56,7 @@ Boot 4 의존성 이름: `spring-boot-starter-webmvc-test`(@WebMvcTest), `spring
 
 ## 저장소 구조
 
-- `BootDemo/`: 이전 연습용 빈 Boot 프로젝트 (실습 대상 아님)
-- `.metadata/`: Eclipse 워크스페이스 메타데이터. 건드리지 않는다.
-- 실습 프로젝트 폴더는 M1에서 만든다 (`PLAN.md` 참고).
+- `SampleDemo/`: 강의 샘플 코드 zip (위 표 참고)
+- `CLAUDE.md`, `PLAN.md`: 수업 규칙과 실습 계획
+- `.gitignore`: Eclipse 워크스페이스 메타데이터(`/.metadata/`)는 추적하지 않는다.
+- 실습 프로젝트 폴더 `MatzipNote/`는 M1에서 만든다 (`PLAN.md` 참고).
