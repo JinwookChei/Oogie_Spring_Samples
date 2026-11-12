@@ -45,7 +45,7 @@
 |---|---|---|---|
 | A | 있음 | 없음 | ❌ `Failed to configure a DataSource: 'url' attribute is not specified` |
 | B | 없음 | 없음 | ✅ 정상 실행 |
-| C | 있음 | 있음 | (진행 예정) |
+| C | 있음 | 있음 | ✅ 정상 실행 (`Started MatzipNoteApplicationTests in 1.3s`) — 아직 `matzip` DB가 없어도 뜸: HikariCP는 실제로 연결이 필요할 때까지 접속을 미룸 |
 
 - MyBatis가 HikariCP·JDBC를 데려옴 → Boot가 클래스패스를 보고 "DB 쓰려는구나" → DataSource 빈 자동 생성 시도 → url이 없어서 실패
 - 내부 조건: `@ConditionalOnClass(DataSource.class ...)` — 클래스가 있을 때만 설정 동작
@@ -59,6 +59,40 @@
 
 **7. `application.properties` 주의**
 - 값 뒤에 주석 금지: `password=ssafy # 비번` → 비밀번호가 `ssafy # 비번`이 됨. 주석은 윗줄에.
+- JDBC url 구조: `jdbc:mysql://서버주소:포트/DB이름?옵션=값&옵션=값` — `?` 뒤는 MySQL 드라이버(Connector/J) 옵션
+- `serverTimezone=Asia/Seoul`: MySQL 서버의 시간대를 드라이버에 알려 줘서 날짜·시간을 올바르게 변환. 틀리면 `created_at`이 9시간 어긋나는 버그. 샘플은 `UTC`였지만 우리는 시간을 화면에 보여 주므로 로컬(KST)에 맞춤. 옵션 목록은 Connector/J "Configuration Properties" 문서
+  - 왜 따로 알려 주나: 서버가 스스로 말하는 시간대 이름이 애매함(한국어 Windows는 `KST`/`대한민국 표준시` → Java가 해석 못 함, 예전 `'KST' is unrecognized` 에러의 원인). 클라우드면 서버와 앱 시간대가 원래 다름 → `Asia/Seoul` 같은 IANA 표준 이름으로 확정
+  - 왜 url에 붙이나: Spring 설정이 아니라 **MySQL 드라이버 전용 옵션**이라서. Spring은 url을 해석하지 않고 드라이버에 그대로 넘김. 다른 방법: `spring.datasource.hikari.data-source-properties.옵션명` (HikariCP를 거쳐 드라이버에 전달)
+- DB url의 DB 이름과 `schema.sql`의 `CREATE DATABASE` 이름은 반드시 같아야 함
+
+**8. 설정 키는 어디서 찾나 (강의 자료 없이)**
+1. **STS 자동 완성**: `spring.datasource.` 입력 후 `Ctrl + Space` → 키 목록, 마우스를 올리면 설명·기본값. 라이브러리 jar 안의 `META-INF/spring-configuration-metadata.json`을 STS가 읽어서 보여 줌 (MyBatis jar에도 있음)
+2. **공식 문서**: Spring Boot 부록 "Common Application Properties" / MyBatis-Spring-Boot-Starter 문서의 Configuration 표 / MySQL Connector/J의 Connection URL Syntax. 프로젝트의 `HELP.md`에 내 버전(4.1.2)에 맞는 문서 링크가 있음
+3. **Properties 클래스 직접 열기** (`Ctrl + Shift + T`): `DataSourceProperties`, `MybatisProperties`, `WebMvcProperties`. `@ConfigurationProperties("접두사")` + 필드 이름 = 키 이름 → 가장 정확한 정답지
+4. **가이드·검색**: spring.io/guides. 블로그 글은 Boot 버전을 꼭 확인
+- 실무 순서: 자동 완성 → 공식 문서 → Properties 클래스
+
+**9. DB 스크립트 위치와 CHECK 제약**
+- `schema.sql`은 `src/main/resources/scripts/`에 둔다. `resources/` 바로 아래의 `schema.sql`은 Spring Boot가 시작할 때 **자동 실행할 수 있는** 특별한 이름(SQL 초기화 Auto Configuration, 기본은 내장 DB일 때만) → 직접 실행할 스크립트는 하위 폴더로 분리
+- 스크립트는 MySQL Workbench에서 직접 실행. 프로젝트에 두는 이유 = DB 구조를 코드와 함께 기록
+- `CHECK (조건식)`: 조건이 참인 값만 허용하는 제약. NULL은 막지 못하므로 `NOT NULL`과 따로 건다. MySQL **8.0.16 미만은 검사하지 않음** (`SELECT VERSION();`으로 확인)
+- 검증은 Service(친절한 메시지) + DB 제약(마지막 방어선) 둘 다
+- FK에 `ON DELETE CASCADE`를 일부러 붙이지 않음 → M4 트랜잭션 실험을 위해
+- Workbench에서 테이블 생성 완료 (MySQL 8.0.46 → CHECK 실제로 동작)
+
+**10. 컬럼 길이 설계**
+- MySQL `varchar(n)`의 n은 **글자 수** (utf8mb4에서 한글도 1글자 = 1)
+- 첫 설계의 실수: email 20, title 10, content 20, image_name 20, password 10 → 실제 값이 안 들어감
+  - 이메일 21자, 제목 15자, 본문 한두 문장, UUID 파일명(약 40자)에서 저장 실패
+  - password는 나중에 해싱하면 60자 이상 → 샘플은 100으로 넉넉하게
+- 긴 본문은 varchar 대신 긴 글 전용 타입 고려
+- 길이를 고칠 땐 `ALTER TABLE`보다 **스크립트를 고치고 다시 실행** → 스크립트 맨 앞에 기존 DB를 지우는 줄이 필요 (재실행 가능한 스크립트)
+- 데이터 insert 순서는 FK 때문에 **부모(member) → 자식(review)**
+- 2차 수정: email 40, password 100, content → **TEXT**(긴 글 전용 타입), image_name 50 ✅ / title 10은 아직 짧음
+- STS 편집기 탭 제목 앞의 `*` = 저장 안 됨. 스크립트 파일이 비어 있으면 DB를 다시 만들 때 수정 내용이 사라짐
+- 3차 수정 ✅: `schema.sql` 저장 완료, title 20. 재실행 방식은 샘플(`DROP DATABASE`)과 다르게 직접 설계 → `CREATE DATABASE IF NOT EXISTS` + `DROP TABLE IF EXISTS`를 **자식(review) → 부모(member) 순서**로 (FK 때문에 부모를 먼저 못 지움)
+- CHECK는 `BETWEEN` 대신 `1 <= rating AND rating <= 5`로 작성 → 같은 동작
+- 테스트 데이터를 스크립트에 넣을 때: 테이블을 새로 만들면 AUTO_INCREMENT가 1부터 다시 시작 → 리뷰의 `mno` 값 결정에 영향. 일부러 실패시키는 insert(rating 6)는 스크립트에 넣지 않음 (실행이 멈춤)
 
 ### 🙋 내 답변과 피드백
 
@@ -81,9 +115,24 @@
 - 의존성은 어떻게 추가하나? → `pom.xml`의 `<dependencies>` 안에 `<dependency>` 블록 추가 후 저장 + `Alt + F5`
 - 라이브러리는 어디서 가져오나? / 인터넷 창고에서 가져오면 내 창고에도 자동 저장되나? → 그렇다 (Maven Central → `.m2`)
 - DataSource가 뭔가? → 커넥션 풀의 대출 창구 인터페이스
+- 강의 자료가 없으면 properties 키는 어디서 찾나? → STS 자동 완성 → 공식 문서 → Properties 클래스 (개념 8)
+- rating을 1~5만 허용하려면? → `CHECK` 제약 조건 (개념 9)
+- `schema.sql`은 어디에 저장하나? → `src/main/resources/scripts/` (개념 9)
+- `CREATE DATABASE` 이름은 뭐로? → `application.properties` url의 DB 이름과 같게 (개념 7)
+- url의 `serverTimezone=Asia/Seoul`은 뭔가? → 서버 시간대를 드라이버에 알려 주는 옵션 (개념 7)
+- 그걸 왜 따로 쓰나? → 서버의 시간대 이름이 애매해서 표준 이름으로 확정 + Spring이 아니라 드라이버 옵션이라 url에 붙임 (개념 7)
 
 ### ⏭️ 남은 일
 
-- [ ] MyBatis 다시 넣고 `application.properties` 작성 → 실험 C
+- [x] 1-1 `pom.xml` 의존성 추가 ✅
+- [x] 1-2 `application.properties` 작성 → 실험 C ✅
 - [ ] 1-3 DB와 테이블 만들기
-- [ ] 1-4 메인 화면 + DataSource 테스트
+  - [x] `schema.sql` 작성·저장, 재실행 가능, 컬럼 길이 수정 완료
+  - [ ] **테스트 데이터 insert** (회원 1명 → 리뷰 1~2개, 하나는 image_name 없이) — 스크립트 마지막에 추가
+  - [ ] **rating 6 insert 실험** (Workbench에서만, 스크립트엔 넣지 않음) → 에러 메시지 확인
+- [ ] 1-4 메인 화면 Controller + `index.jsp` + DataSource 주입 테스트
+- [ ] 미답 질문: 실험 C에서 `matzip` DB가 없는데도 앱이 뜬 이유를 한 문장으로
+
+### 📌 다음 세션 시작점 (2026-11-12 종료)
+
+1-3의 **테스트 데이터 insert**부터 이어서 한다. 그다음 rating 6 실험 → 1-4.

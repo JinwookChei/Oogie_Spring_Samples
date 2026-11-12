@@ -13,9 +13,10 @@
 | 표시 | 의미 | 누가 작성 |
 |---|---|---|
 | 🔍 | 세세하게 | 교육생이 직접 작성 → 튜터가 한 줄씩 리뷰 |
-| 👀 | 큰 그림 | 개념만 짚고, 뼈대는 튜터가 제공 |
+| 👀 | 큰 그림 | 개념 위주로 짧게 가이드 → 교육생이 직접 작성 → 가볍게 확인 |
 
-- **JSP 화면은 전부 튜터가 뼈대를 제공**한다. JSP 작성은 Spring 학습이 아니므로 시간을 쓰지 않는다. 교육생은 Java 코드(Controller · Service · DAO · mapper · 테스트)에 집중한다.
+- **튜터는 코드를 주지 않고 가이드만 한다.** 설정 파일, SQL, JSP를 포함한 모든 파일을 교육생이 직접 작성한다. (교육생이 "코드 보여 줘"라고 요청할 때만 예외)
+- **JSP 화면은 최소한으로** 만든다. 디자인 없이 폼과 출력만 두고, 샘플 FW_05의 JSP를 참고해 빠르게 작성한다. 시간은 Java 코드(Controller · Service · DAO · mapper · 테스트)에 집중한다.
 - 마일스톤은 **완료 기준**을 통과해야 끝난다. 끝나면 체크박스와 진행 기록을 갱신한다.
 - 순서는 **기능 한 줄 관통**이다. 회원가입 하나를 DB부터 화면까지 먼저 완성하고 나서 리뷰 기능으로 넓힌다.
 - 참고 샘플: `SampleDemo/` (FW_05 = MVC, FW_07 = MyBatis·Transaction). 구조와 이름은 샘플 관례를 따른다.
@@ -76,10 +77,10 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 ### M1. 프로젝트 세팅 👀 · 1~2시간
 교안: SpringBoot, Logging · 샘플: FW_05 `pom.xml`, FW_07 `application.properties`
 
-- [ ] STS `File > New > Spring Starter Project`로 프로젝트 생성 (Maven, Java 21 / 의존성: Spring Web, MyBatis, MySQL Driver, Lombok, DevTools)
-- [ ] JSP 의존성 수동 추가 (`tomcat-embed-jasper`, JSTL 2개) + `spring.mvc.view.prefix/suffix`
-- [ ] `application.properties`: DB 접속, HikariCP, MyBatis, 로깅 레벨
-- [ ] `schema.sql`로 DB와 테이블 생성
+- [x] STS `File > New > Spring Starter Project`로 프로젝트 생성 (Maven, Java 21 / 의존성: Spring Web, MyBatis, MySQL Driver, Lombok, DevTools)
+- [x] JSP 의존성 수동 추가 (`tomcat-embed-jasper`, JSTL 2개) + `spring.mvc.view.prefix/suffix`
+- [x] `application.properties`: DB 접속, MyBatis, JSP, 로깅 레벨 (HikariCP는 기본값 사용)
+- [ ] `schema.sql`로 DB와 테이블 생성 (테이블 ✅ / 테스트 데이터, rating CHECK 실험 남음)
 - [ ] 메인 화면 Controller 하나로 `index.jsp` 확인
 
 **알고 넘어갈 것**: Starter, Auto Configuration, 내장 Tomcat, `@SpringBootApplication` = 설정 + 자동 설정 + 컴포넌트 스캔
@@ -181,3 +182,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 날짜 | 마일스톤 | 메모 |
 |---|---|---|
 | 2026-11-12 | 계획 수립 | 교안·샘플 확인, 프로젝트 주제 확정, 튜터 검토 반영(M2 통합, JSP 튜터 제공, 완료 기준, ImageStorage DI 과제, 작성자 권한 규칙) |
+| 2026-11-12 | M1 진행 중 | 프로젝트 생성, 의존성·properties 완료, Auto Configuration 실험(A/B/C), 테이블 생성. **다음: 1-3 테스트 데이터 insert부터** (`STUDY_LOG.md` 📌 참고) |
