@@ -210,6 +210,8 @@ M1 완료 ✅ → M2 챕터로 이동
 
 ### ✅ 한 일
 
+- `MemberController` + `member/signup.jsp`(튜터 제공) + `index.jsp` 링크 → **브라우저에서 회원가입 → DB 저장 첫 관통** (2026-11-15)
+
 - `MemberService` + `MemberServiceImpl`(중복 검사 → insert, mno 반환) + `MemberServiceTest`(성공 / 중복 예외)
 
 - `MemberDao`(insert, selectByEmail) + `mappers/member.xml` 완성
@@ -285,6 +287,8 @@ M1 완료 ✅ → M2 챕터로 이동
 | Q6. Service를 interface + 구현으로 나누는 이유? | (튜터에게 설명 요청) | → 개념 6 |
 | Q7. 가입 성공 후 forward가 아니라 redirect인 이유? | forward면 F5 때 주소가 안 바뀌어서 계속 회원가입 요청 발생 | ✅ 정답 (PRG: Post-Redirect-Get). redirect 후 브라우저 마지막 요청 = `GET /` → F5는 GET만 반복. 우리 앱에선 중복 POST가 가면 중복 검사 예외로 이어짐 |
 | Q8. 폼 값 3개가 어떻게 `Member` 하나로? | `@RequestParam`으로 받아서 `Member`로 만든다 | 🟡 그것도 가능하지만 수동. **`@ModelAttribute`**는 기본 생성자로 객체를 만들고 파라미터 이름 = 필드 이름인 **setter**를 호출해 자동으로 채움 (`@RequestParam` = 값 하나, `@ModelAttribute` = 객체) |
+| `MemberController` 1차 | `@RequestMapping("/member")` + `@Controller`, `@ModelAttribute`, try-catch | ✅ **브라우저 가입 → DB 저장 성공** (mno 5, created_at DEFAULT). ❌ `redirect:/index` → 404 / catch에서 Model에 error 안 담음 → 메시지 안 보임 / `catch (Exception)` → 진짜 장애까지 숨김 → `IllegalArgumentException`만. 🟡 URL `signUp-form`(앞 `/` 없음, 대문자) → GET·POST 같은 `/signup` 고려 / Service와 로그 중복 |
+| `MemberController` 2차 | `redirect:/`, `Model`에 error, `IllegalArgumentException`만 catch, `public`, `@Controller` 맨 위 | ✅ 3개 모두 수정. 💅 안 쓰는 `int mno`. 💡 `@ModelAttribute` 객체는 자동으로 Model에 `member`로 담김 → `value="${member.name}"`로 입력값 유지 가능 |
 
 ### 🛠️ 트러블슈팅
 
@@ -301,6 +305,10 @@ M1 완료 ✅ → M2 챕터로 이동
 - 실제로 깨진 채 저장됨 → 튜터가 내 요청으로 한글 주석 복구 (UTF-8 바이트를 ISO-8859-1로 읽은 글자를 다시 UTF-8로 저장한 상태 = 이중 인코딩 → 역변환). 설정 값은 그대로
 
 ### ❓ 내가 한 질문
+
+- `return "redirect:/index"`가 왜 메인으로 안 가나? → `redirect:` 뒤는 **URL**(브라우저가 새로 요청할 주소), 그냥 문자열은 **뷰 이름**(JSP 파일). `/index`를 받는 `@GetMapping`이 없어서 404. 메인 URL은 `MainController`의 `@GetMapping("/")` → `redirect:/`
+
+- `<a href="..."></a>`가 왜 안 보이나? → 태그 사이에 글자가 없으면 크기 0 → 안 보임. `href`는 목적지, 사이의 내용이 화면 표시. 덤: `<c:set>`은 JSTL **taglib 선언**이 있어야 동작 (없으면 그냥 글자로 출력, `${root}`는 빈 값 → 우연히 동작). 그리고 `@Controller("/member")`의 괄호 값은 **빈 이름**이지 URL이 아님 → URL 앞부분은 `@RequestMapping`
 
 - 명확성을 위해 `@Qualifier`를 항상 붙이는 게 낫지 않나? → 보통은 붙이지 않는다. ① 사용하는 쪽이 **구현 클래스 이름**(`"memberServiceImpl"`)을 알게 됨 → interface로 받는 의미(Q6)가 약해짐 ② 문자열이라 오타·클래스 이름 변경을 컴파일러가 못 잡음 ③ 구현을 바꾸면 사용하는 곳을 전부 찾아 고쳐야 함. 명확성은 **타입**(interface)이 주고, 어떤 구현을 쓸지는 구현·설정 쪽(`@Primary`, `@Profile`)에서 정한다. `@Qualifier`는 같은 타입이 여럿이고 **골라야 할 때만**
 
@@ -330,10 +338,20 @@ M1 완료 ✅ → M2 챕터로 이동
   - [x] `MemberDaoTest` (`@SpringBootTest` + `@Transactional`): insert / 있는 이메일 / 없는 이메일 → 통과, rollback 확인 ✅
     - [ ] (보강, 미룸) `assertNotNull(m1)`, **`createdAt` 검증**, `Member.builder()`, 미사용 import 정리
   - [x] `MemberService` (interface + impl), 생성자 주입, 이메일 중복 검사 ✅
-  - [ ] `MemberController` + JSP(`member/signup.jsp`는 튜터 제공) → 브라우저 가입 → DB 확인 ← 진행 중
+  - [x] `MemberController` + `member/signup.jsp`(튜터 제공) + `index.jsp` 링크 → 브라우저 가입 → DB 저장 확인 ✅ (2차 리뷰 통과)
+  - [ ] **브라우저 최종 확인 3가지** ← 다음 세션 첫 할 일
+    - [ ] 새 이메일 가입 → 메인 화면으로 redirect
+    - [ ] `kim@matzip.com` 가입 → 폼에 빨간 에러 메시지
+    - [ ] 성공 후 메인에서 F5 → 회원이 또 생기지 않음 (PRG, Workbench로 개수 확인)
+  - [ ] (💅 선택) `MemberController`의 안 쓰는 `int mno` 정리, 실패 시 입력값 유지(`value="${member.name}"`)
+  - [ ] (미확인) `MemberServiceTest` 실행 결과 공유: 초록 2개, 로그의 mno·`createdAt`(insert 직후 객체엔 null인 이유), 예외 메시지
 - [ ] 2-2 리뷰 CRUD + `@MybatisTest`
+  - [ ] 셀프 퀴즈(M2 PLAN): `@Component`만 붙이면 빈이 될까? / `@Mapper` interface는 왜 주입될까? / `#{}` 대신 `${}`를 쓰면?
   - [ ] DAO 테스트 통과 후 실험: `@MapperScan` 주석 처리 → 두 DAO에 `@Mapper` → 같은 테스트 통과 확인 / (선택) 섞어 쓰면 `@Mapper` 쪽이 등록 안 되는 것 확인 → 하나로 정리
 
-### 📌 다음 세션 시작점 (2026-11-14)
+### 📌 다음 세션 시작점 (2026-11-15 종료)
 
-2-1 `MemberController` 작성부터. (2-2에서 `@MybatisTest`로 바꿀 때 주의: 슬라이스 테스트는 별도 `@Configuration`의 `@MapperScan`을 안 읽을 수 있음 → `@Mapper` 실험과 연결)
+1. **2-1 마무리**: 앱 실행 → 브라우저 최종 확인 3가지(성공 redirect / 중복 에러 메시지 / F5 PRG) → 통과하면 2-1 완료 ✅
+2. 그다음 **2-2 리뷰 CRUD**: `Review` DTO → `ReviewDao` + `review.xml`(insert / select / delete / update) → 리뷰 상세 join(`resultMap` + `<association>`) → 검색(`<where>` + `<if>`) → `@MybatisTest` DAO 테스트
+   - ⚠️ `@MybatisTest`는 슬라이스 테스트라 별도 `@Configuration`(`DBConfig`)의 `@MapperScan`을 안 읽을 수 있음 → 이때 `@Mapper` 실험과 연결 (위 ⏭️ 참고)
+3. 환경 메모: 이 컴퓨터는 앱·Workbench 모두 **root/1234**. STS의 `.properties` 인코딩은 UTF-8로 설정 완료
