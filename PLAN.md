@@ -74,14 +74,14 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ## 마일스톤
 
-### M1. 프로젝트 세팅 👀 · 1~2시간
+### M1. 프로젝트 세팅 👀 · 1~2시간 — ✅ 완료 (2026-11-14)
 교안: SpringBoot, Logging · 샘플: FW_05 `pom.xml`, FW_07 `application.properties`
 
 - [x] STS `File > New > Spring Starter Project`로 프로젝트 생성 (Maven, Java 21 / 의존성: Spring Web, MyBatis, MySQL Driver, Lombok, DevTools)
 - [x] JSP 의존성 수동 추가 (`tomcat-embed-jasper`, JSTL 2개) + `spring.mvc.view.prefix/suffix`
 - [x] `application.properties`: DB 접속, MyBatis, JSP, 로깅 레벨 (HikariCP는 기본값 사용)
-- [ ] `schema.sql`로 DB와 테이블 생성 (테이블 ✅ / 테스트 데이터, rating CHECK 실험 남음)
-- [ ] 메인 화면 Controller 하나로 `index.jsp` 확인
+- [x] `schema.sql`로 DB와 테이블 생성 (테스트 데이터 포함, rating CHECK 실험 완료)
+- [x] 메인 화면 Controller 하나로 `index.jsp` 확인 + `ConfigTest` 통과
 
 **알고 넘어갈 것**: Starter, Auto Configuration, 내장 Tomcat, `@SpringBootApplication` = 설정 + 자동 설정 + 컴포넌트 스캔
 
@@ -183,3 +183,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 |---|---|---|
 | 2026-11-12 | 계획 수립 | 교안·샘플 확인, 프로젝트 주제 확정, 튜터 검토 반영(M2 통합, JSP 튜터 제공, 완료 기준, ImageStorage DI 과제, 작성자 권한 규칙) |
 | 2026-11-12 | M1 진행 중 | 프로젝트 생성, 의존성·properties 완료, Auto Configuration 실험(A/B/C), 테이블 생성. **다음: 1-3 테스트 데이터 insert부터** (`STUDY_LOG.md` 📌 참고) |
+| 2026-11-14 | M1 완료 | DB 권한 문제(ssafy → root로 전환), 테스트 데이터 스크립트화, rating CHECK 실험(3819), `MainController` + `index.jsp` + `ConfigTest`(HikariDataSource) 통과. **다음: M2 2-1 `Member` DTO부터** |
