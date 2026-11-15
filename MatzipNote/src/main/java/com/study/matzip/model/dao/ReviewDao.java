@@ -6,9 +6,9 @@ public interface ReviewDao {
 	
 	public int insert(Review review);
 	
-	public Review seletByRno(int rno);
+	public Review selectByRno(int rno);
 	
-	public int update(int rno, Review review);
+	public int update(Review review);
 	
 	public int delete(int rno);
 }

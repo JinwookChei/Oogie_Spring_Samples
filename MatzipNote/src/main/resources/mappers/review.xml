@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE  mapper  PUBLIC  "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-
+	
 <mapper namespace="com.study.matzip.model.dao.ReviewDao">
-
+	<insert id="insert" useGeneratedKeys="true" keyProperty="rno">
+		INSERT INTO review(mno, title, content, rating, image_name) 
+		VALUES(#{mno}, #{title}, #{content}, #{rating}, #{imageName})
+	</insert>
+	
+	<select id="selectByRno" resultType="Review">
+		SELECT * 
+		FROM review 
+		WHERE rno = #{rno}
+	</select>
+	
+	<update id="update">
+		UPDATE review 
+		Set title = #{title}
+		, content = #{content}
+		, rating = #{rating}
+		, image_name = #{imageName} 
+		WHERE rno = #{rno}
+	</update>
+	
+	<delete id="delete">
+		DELETE FROM review
+		WHERE rno = #{rno}
+	</delete>
 </mapper>

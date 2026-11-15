@@ -213,7 +213,8 @@ M1 완료 ✅ → M2 챕터로 이동
 - `MemberController` + `member/signup.jsp`(튜터 제공) + `index.jsp` 링크 → **브라우저에서 회원가입 → DB 저장 첫 관통** (2026-11-15)
 - **2-1 완료** ✅: 브라우저 최종 확인 3가지 통과 (성공 redirect / 중복 에러 메시지 / F5 PRG)
 - `Review` DTO 완성 (컬럼 7개 ↔ 필드 7개), 1차 리뷰 통과
-- `ReviewDao` 메서드 4개 선언 작성 중 (리뷰 전), `review.xml`은 namespace만 작성
+- `ReviewDao` 완성 (2차 리뷰 통과: 오타 `selet` 수정, `update(Review)` 하나로) (2026-11-15)
+- `review.xml` SQL 4개 1차 작성 → 리뷰 받음 (insert·update 수정 필요)
 
 - `MemberService` + `MemberServiceImpl`(중복 검사 → insert, mno 반환) + `MemberServiceTest`(성공 / 중복 예외)
 
@@ -296,6 +297,12 @@ M1 완료 ✅ → M2 챕터로 이동
 | Q2-2. 작성자 정보를 `Review` 객체에 어떻게 담나? | `mno` | ❌ `mno`는 숫자뿐 → 이름을 알려면 DB를 한 번 더 조회해야 함. 담는 방법 ① `writerName` 같은 String 필드 ② **`Member` 객체를 필드로**(객체 안에 객체, has-a) → MyBatis `<association>`이 ②를 채움 (join 단계) |
 | `Review` DTO 1차 | 컬럼 7개 ↔ 필드 7개, `private`, `imageName`·`createdAt` 카멜 케이스, `LocalDateTime`, Lombok 4종 | ✅ **한 번에 통과**. M2 1차에서 짚은 것(접근 제어자, 이름 짝, 날짜 타입, import)을 전부 반영 👍 |
 | Q3. `ReviewDao`를 만들면 `DBConfig`를 고쳐야 하나? | 그대로 둬도 됨, 같은 dao 패키지라서 | ✅ 정답. `@MapperScan`은 **패키지 단위**로 interface를 찾아 등록 (하위 패키지 포함). XML 쪽은 `mapper-locations`의 `mappers/**/*.xml`이 `review.xml`도 잡음 → **Java 쪽·XML 쪽 둘 다** 설정 변경 없음 |
+| `ReviewDao` 1차 | `insert` / `seletByRno` / `update(int rno, Review review)` / `delete` | 👍 패키지 위치, 반환 타입(`int` 행 수 / 단건 `Review`). ❌ `selet` 오타 → XML id와 짝이 안 맞으면 호출할 때 `BindingException` / `update` 파라미터 2개 → `Review` 안에 `rno`가 이미 있음, 2개면 `@Param` 필요 |
+| `ReviewDao` 2차 | `selectByRno`, `update(Review review)` | ✅ 통과. 💅 interface 메서드의 `public` 생략 가능 |
+| `review.xml` 1차 | insert / select / update / delete 4개 | 👍 namespace, id 4개가 DAO와 정확히 짝, delete·select의 `WHERE rno`, DEFAULT 컬럼 `created_at` 뺌, `resultType="Review"` alias. ❌ `keyProperty="mno"` → 새 rno가 **작성자 mno 필드를 덮어씀** (조용한 버그) / `#{image_name}` → `#{}` 안은 **DTO 필드 이름** `imageName` (getter 없음 에러) / update에 `INSERT` 문법(`INTO`, `VALUES`) → UPDATE는 `SET 컬럼 = 값, ...` + 작성자 `mno`는 수정 대상 아님. 💅 SQL 끝 `;` 빼기 (한 태그 = 한 문장) |
+| `review.xml` 2차 | `keyProperty="rno"`, `#{imageName}`, update를 `SET(컬럼들) VALUES(값들)`로 | ✅ insert 완성 (keyProperty, imageName 둘 다 수정). ❌ update는 아직 문법 에러: INSERT는 **컬럼 목록 + 값 목록을 순서로 짝짓기**, UPDATE는 **`컬럼 = 값` 쌍을 쉼표로 나열** (괄호·VALUES 없음) / `mno`(작성자)는 수정 대상 아님 → SET에서 제외 |
+| `review.xml` 3차 | update를 `SET 컬럼 = #{필드}, ...` + `WHERE rno`로 | ✅ **UPDATE 문법 완성** (쉼표 앞에 두는 스타일 👍, WHERE 유지). ❌ `mno = #{mno}`가 아직 SET에 있음 → 작성자가 바뀔 수 있음 + 수정 폼에 mno가 없으면 0이 들어가 FK 에러 → SET에서 제외. 💅 `Set` → 키워드 대문자 `SET` 통일 |
+| `review.xml` 4차 | update SET에서 `mno` 제거 | ✅ **SQL 4개 완성**. 수정 가능한 것만 SET, 대상은 WHERE rno. 튜터 확인: `MemberDaoTest` 실행 시 `review.xml` 파싱 포함 앱 컨텍스트 정상 로딩 |
 
 ### 🛠️ 트러블슈팅
 
@@ -351,7 +358,9 @@ M1 완료 ✅ → M2 챕터로 이동
   - [ ] (미확인) `MemberServiceTest` 실행 결과 공유: 초록 2개, 로그의 mno·`createdAt`(insert 직후 객체엔 null인 이유), 예외 메시지
 - [ ] 2-2 리뷰 CRUD + `@MybatisTest`
   - [x] `Review` DTO ✅
-  - [ ] `ReviewDao`(선언 작성됨, 리뷰 전) + `review.xml`(SQL 4개 미작성) ← 다음 세션 첫 할 일
+  - [x] `ReviewDao` ✅
+  - [x] `review.xml` SQL 4개 (insert / selectByRno / update / delete) ✅ (4차 리뷰 통과)
+  - [ ] 리뷰 상세 join: `Review`에 `Member writer` 필드 + `resultMap` + `<association>` ← 지금 할 일
   - [ ] 셀프 퀴즈(M2 PLAN): `@Component`만 붙이면 빈이 될까? / `@Mapper` interface는 왜 주입될까? / `#{}` 대신 `${}`를 쓰면?
   - [ ] DAO 테스트 통과 후 실험: `@MapperScan` 주석 처리 → 두 DAO에 `@Mapper` → 같은 테스트 통과 확인 / (선택) 섞어 쓰면 `@Mapper` 쪽이 등록 안 되는 것 확인 → 하나로 정리
 
