@@ -376,7 +376,18 @@ M1 완료 ✅ → M2 챕터로 이동
   - [ ] 셀프 퀴즈(M2 PLAN): `@Component`만 붙이면 빈이 될까? / `@Mapper` interface는 왜 주입될까? / `#{}` 대신 `${}`를 쓰면?
   - [ ] DAO 테스트 통과 후 실험: `@MapperScan` 주석 처리 → 두 DAO에 `@Mapper` → 같은 테스트 통과 확인 / (선택) 섞어 쓰면 `@Mapper` 쪽이 등록 안 되는 것 확인 → 하나로 정리
 
-### 📌 다음 세션 시작점 (2026-11-15 2차 세션 종료)
+### 📌 다음 세션 시작점 (2026-11-15 3차 세션 종료)
+
+1. **리뷰 검색 개념 질문부터** (답 대기 중): "키워드만 입력하고 별점은 비웠다면 `WHERE`절은 어떻게 달라져야 할까? 둘 다 비웠다면?"
+   - 답을 들은 뒤 → `<where>` + `<if test="...">` 개념 (빈 조건이면 `WHERE` 자체가 빠짐, 앞의 `AND` 자동 정리)
+2. **검색 작성**: 검색 조건을 담을 `ReviewSearch` DTO(키워드, 최소 별점) → `ReviewDao.search(ReviewSearch)`(반환 `List<Review>`) → `review.xml`에 동적 SQL (키워드는 `LIKE CONCAT('%', #{keyword}, '%')`, 별점은 `rating >=`)
+   - 튜터 메모: 셀프 퀴즈 `#{}` vs `${}`를 LIKE에서 연결 (SQL Injection) / `test` 안의 빈 문자열 검사(`keyword != null and keyword != ''`) / `int minRating`이면 0이 기본값 → `Integer`로 null 검사할지, `> 0`으로 검사할지 고민
+3. **`ReviewDaoTest`** (교육생 작성): insert(rno 채워짐) / `selectDetail`(`writer` not null, `writer.name`, `imageName`·`createdAt`) / 동적 검색 / update / delete → `@MybatisTest` 슬라이스 테스트
+   - ⚠️ `@MybatisTest`는 `DBConfig`의 `@MapperScan`을 안 읽을 수 있음 + 기본으로 내장 DB로 바꾸려 함(`@AutoConfigureTestDatabase(replace = NONE)` 필요할 수 있음) → `@Mapper` 실험과 연결
+4. 그다음: 셀프 퀴즈 3개 → M2 완료 기준 확인 → Notion 업로드
+5. 환경 메모: 앱·Workbench 모두 **root/1234**. ⚠️ STS에서 **저장(`Ctrl + S`)** 확인. 이번 세션에 `review.xml` resultMap·join select는 교육생 요청으로 **튜터가 작성**(주석 포함) → 다음 세션에 주석 읽고 이해했는지 짧게 확인
+
+#### (지난) 2차 세션 종료 시점 기록
 
 1. **`ReviewDao` 리뷰부터**: 저장된 선언 4개(`insert` / `seletByRno` / `update(int rno, Review review)` / `delete`)를 한 줄씩 리뷰
    - 튜터 메모(리뷰 때 짚을 것): 메서드 이름 오타 `selet` → `id`와 짝이 맞아야 함 / `update`의 파라미터 2개 → `Review` 안에 이미 `rno`가 있음 + 파라미터가 2개 이상이면 MyBatis에서 `#{}` 이름을 어떻게 찾을지(`@Param`) / 💅 interface 메서드의 `public`은 생략 가능 (`MemberDao` 리뷰 때와 같음)

@@ -100,8 +100,8 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 - [x] 브라우저에서 가입 → DB에 행이 생긴 것 확인 (redirect·에러 메시지·F5 PRG까지 확인 ✅)
 
 **2-2. 리뷰 CRUD**
-- [ ] `Review` DTO, `ReviewDao` + `review.xml`: insert / select / delete / update
-- [ ] 리뷰 상세: review + 작성자 join → `resultMap` + `<association>`
+- [x] `Review` DTO, `ReviewDao` + `review.xml`: insert / select / delete / update
+- [x] 리뷰 상세: review + 작성자 join → `resultMap` + `<association>` (XML은 튜터 작성)
 - [ ] 리뷰 검색: 키워드, 최소 별점 → `<where>` + `<if>`
 - [ ] `@MybatisTest`로 DAO 테스트 (`@Transactional` 롤백 확인)
 
@@ -186,3 +186,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-14 | M1 완료 | DB 권한 문제(ssafy → root로 전환), 테스트 데이터 스크립트화, rating CHECK 실험(3819), `MainController` + `index.jsp` + `ConfigTest`(HikariDataSource) 통과. **다음: M2 2-1 `Member` DTO부터** |
 | 2026-11-15 | M2 진행 중 | 2-1: `Member` DTO, `MemberDao` + `member.xml`, `DBConfig`(`@MapperScan`), `MemberService`(중복 검사), DAO·Service 테스트(`@Transactional` rollback), `MemberController` + `signup.jsp` → 브라우저 가입 DB 저장 성공. **다음: 2-1 브라우저 최종 확인 3가지 → 2-2 리뷰 CRUD** (`STUDY_LOG.md` 📌 참고) |
 | 2026-11-15 | M2 진행 중 (2차) | **2-1 완료** (브라우저 redirect·에러 메시지·F5 PRG 확인). 2-2: `Review` DTO 1차 통과, `ReviewDao` 선언 작성 중. **다음: `ReviewDao` 리뷰 → `review.xml` SQL 4개** (`STUDY_LOG.md` 📌 참고) |
+| 2026-11-15 | M2 진행 중 (3차) | 2-2: `ReviewDao` 완성, `review.xml` CRUD 4개(4차 리뷰 통과), 리뷰 상세 join(`Review.writer` + `reviewDetailMap` + `<association>`, XML은 튜터 작성). **다음: 검색 개념 질문 → `ReviewSearch` + `<where>`/`<if>` → `ReviewDaoTest`** (`STUDY_LOG.md` 📌 참고) |
