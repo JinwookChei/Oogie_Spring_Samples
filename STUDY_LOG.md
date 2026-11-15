@@ -211,6 +211,9 @@ M1 완료 ✅ → M2 챕터로 이동
 ### ✅ 한 일
 
 - `MemberController` + `member/signup.jsp`(튜터 제공) + `index.jsp` 링크 → **브라우저에서 회원가입 → DB 저장 첫 관통** (2026-11-15)
+- **2-1 완료** ✅: 브라우저 최종 확인 3가지 통과 (성공 redirect / 중복 에러 메시지 / F5 PRG)
+- `Review` DTO 완성 (컬럼 7개 ↔ 필드 7개), 1차 리뷰 통과
+- `ReviewDao` 메서드 4개 선언 작성 중 (리뷰 전), `review.xml`은 namespace만 작성
 
 - `MemberService` + `MemberServiceImpl`(중복 검사 → insert, mno 반환) + `MemberServiceTest`(성공 / 중복 예외)
 
@@ -289,6 +292,10 @@ M1 완료 ✅ → M2 챕터로 이동
 | Q8. 폼 값 3개가 어떻게 `Member` 하나로? | `@RequestParam`으로 받아서 `Member`로 만든다 | 🟡 그것도 가능하지만 수동. **`@ModelAttribute`**는 기본 생성자로 객체를 만들고 파라미터 이름 = 필드 이름인 **setter**를 호출해 자동으로 채움 (`@RequestParam` = 값 하나, `@ModelAttribute` = 객체) |
 | `MemberController` 1차 | `@RequestMapping("/member")` + `@Controller`, `@ModelAttribute`, try-catch | ✅ **브라우저 가입 → DB 저장 성공** (mno 5, created_at DEFAULT). ❌ `redirect:/index` → 404 / catch에서 Model에 error 안 담음 → 메시지 안 보임 / `catch (Exception)` → 진짜 장애까지 숨김 → `IllegalArgumentException`만. 🟡 URL `signUp-form`(앞 `/` 없음, 대문자) → GET·POST 같은 `/signup` 고려 / Service와 로그 중복 |
 | `MemberController` 2차 | `redirect:/`, `Model`에 error, `IllegalArgumentException`만 catch, `public`, `@Controller` 맨 위 | ✅ 3개 모두 수정. 💅 안 쓰는 `int mno`. 💡 `@ModelAttribute` 객체는 자동으로 Model에 `member`로 담김 → `value="${member.name}"`로 입력값 유지 가능 |
+| Q2-1. review와 member를 SQL에서 무엇으로 합치나? | `mno` | 🟡 `mno`는 **연결 고리(조인 키)**로 정답. 합치는 문법은 **`JOIN ... ON r.mno = m.mno`** → 두 테이블의 행을 옆으로 붙여 한 행으로 만듦 |
+| Q2-2. 작성자 정보를 `Review` 객체에 어떻게 담나? | `mno` | ❌ `mno`는 숫자뿐 → 이름을 알려면 DB를 한 번 더 조회해야 함. 담는 방법 ① `writerName` 같은 String 필드 ② **`Member` 객체를 필드로**(객체 안에 객체, has-a) → MyBatis `<association>`이 ②를 채움 (join 단계) |
+| `Review` DTO 1차 | 컬럼 7개 ↔ 필드 7개, `private`, `imageName`·`createdAt` 카멜 케이스, `LocalDateTime`, Lombok 4종 | ✅ **한 번에 통과**. M2 1차에서 짚은 것(접근 제어자, 이름 짝, 날짜 타입, import)을 전부 반영 👍 |
+| Q3. `ReviewDao`를 만들면 `DBConfig`를 고쳐야 하나? | 그대로 둬도 됨, 같은 dao 패키지라서 | ✅ 정답. `@MapperScan`은 **패키지 단위**로 interface를 찾아 등록 (하위 패키지 포함). XML 쪽은 `mapper-locations`의 `mappers/**/*.xml`이 `review.xml`도 잡음 → **Java 쪽·XML 쪽 둘 다** 설정 변경 없음 |
 
 ### 🛠️ 트러블슈팅
 
@@ -332,26 +339,27 @@ M1 완료 ✅ → M2 챕터로 이동
 
 ### ⏭️ 남은 일
 
-- [ ] 2-1 회원가입 한 줄 관통
+- [x] 2-1 회원가입 한 줄 관통 ✅
   - [x] `Member` DTO ✅
   - [x] `MemberDao` + `member.xml` (insert + PK 받아오기, selectByEmail) + `@MapperScan` ✅
   - [x] `MemberDaoTest` (`@SpringBootTest` + `@Transactional`): insert / 있는 이메일 / 없는 이메일 → 통과, rollback 확인 ✅
     - [ ] (보강, 미룸) `assertNotNull(m1)`, **`createdAt` 검증**, `Member.builder()`, 미사용 import 정리
   - [x] `MemberService` (interface + impl), 생성자 주입, 이메일 중복 검사 ✅
   - [x] `MemberController` + `member/signup.jsp`(튜터 제공) + `index.jsp` 링크 → 브라우저 가입 → DB 저장 확인 ✅ (2차 리뷰 통과)
-  - [ ] **브라우저 최종 확인 3가지** ← 다음 세션 첫 할 일
-    - [ ] 새 이메일 가입 → 메인 화면으로 redirect
-    - [ ] `kim@matzip.com` 가입 → 폼에 빨간 에러 메시지
-    - [ ] 성공 후 메인에서 F5 → 회원이 또 생기지 않음 (PRG, Workbench로 개수 확인)
-  - [ ] (💅 선택) `MemberController`의 안 쓰는 `int mno` 정리, 실패 시 입력값 유지(`value="${member.name}"`)
+  - [x] 브라우저 최종 확인 3가지 ✅ (2026-11-15): 새 이메일 가입 → 메인 redirect / `kim@matzip.com` → 폼에 에러 메시지 / F5 → 회원 추가 안 됨 (PRG)
+  - [ ] (💅 선택) 실패 시 입력값 유지(`value="${member.name}"`) (`int mno` 정리는 완료 ✅)
   - [ ] (미확인) `MemberServiceTest` 실행 결과 공유: 초록 2개, 로그의 mno·`createdAt`(insert 직후 객체엔 null인 이유), 예외 메시지
 - [ ] 2-2 리뷰 CRUD + `@MybatisTest`
+  - [x] `Review` DTO ✅
+  - [ ] `ReviewDao`(선언 작성됨, 리뷰 전) + `review.xml`(SQL 4개 미작성) ← 다음 세션 첫 할 일
   - [ ] 셀프 퀴즈(M2 PLAN): `@Component`만 붙이면 빈이 될까? / `@Mapper` interface는 왜 주입될까? / `#{}` 대신 `${}`를 쓰면?
   - [ ] DAO 테스트 통과 후 실험: `@MapperScan` 주석 처리 → 두 DAO에 `@Mapper` → 같은 테스트 통과 확인 / (선택) 섞어 쓰면 `@Mapper` 쪽이 등록 안 되는 것 확인 → 하나로 정리
 
-### 📌 다음 세션 시작점 (2026-11-15 종료)
+### 📌 다음 세션 시작점 (2026-11-15 2차 세션 종료)
 
-1. **2-1 마무리**: 앱 실행 → 브라우저 최종 확인 3가지(성공 redirect / 중복 에러 메시지 / F5 PRG) → 통과하면 2-1 완료 ✅
-2. 그다음 **2-2 리뷰 CRUD**: `Review` DTO → `ReviewDao` + `review.xml`(insert / select / delete / update) → 리뷰 상세 join(`resultMap` + `<association>`) → 검색(`<where>` + `<if>`) → `@MybatisTest` DAO 테스트
+1. **`ReviewDao` 리뷰부터**: 저장된 선언 4개(`insert` / `seletByRno` / `update(int rno, Review review)` / `delete`)를 한 줄씩 리뷰
+   - 튜터 메모(리뷰 때 짚을 것): 메서드 이름 오타 `selet` → `id`와 짝이 맞아야 함 / `update`의 파라미터 2개 → `Review` 안에 이미 `rno`가 있음 + 파라미터가 2개 이상이면 MyBatis에서 `#{}` 이름을 어떻게 찾을지(`@Param`) / 💅 interface 메서드의 `public`은 생략 가능 (`MemberDao` 리뷰 때와 같음)
+2. **`review.xml` SQL 4개** 작성: `insert` 한 쌍 먼저 → 리뷰 → 나머지 3개 (`keyProperty="rno"`, DEFAULT 컬럼 빼기, update·delete의 `WHERE` 필수, `resultType`은 alias `Review` 가능)
+3. 그다음: 리뷰 상세 join(`resultMap` + `<association>`, `Review`에 `Member` 필드 추가: Q2-2 답) → 검색(`<where>` + `<if>`) → `@MybatisTest` DAO 테스트
    - ⚠️ `@MybatisTest`는 슬라이스 테스트라 별도 `@Configuration`(`DBConfig`)의 `@MapperScan`을 안 읽을 수 있음 → 이때 `@Mapper` 실험과 연결 (위 ⏭️ 참고)
-3. 환경 메모: 이 컴퓨터는 앱·Workbench 모두 **root/1234**. STS의 `.properties` 인코딩은 UTF-8로 설정 완료
+4. 환경 메모: 이 컴퓨터는 앱·Workbench 모두 **root/1234**. STS의 `.properties` 인코딩은 UTF-8로 설정 완료. ⚠️ STS에서 작성 후 **저장(`Ctrl + S`)** 확인 (이번 세션에 미저장 상태로 리뷰 요청이 두 번 있었음)

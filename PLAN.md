@@ -97,7 +97,7 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 - [x] `MemberDao` + `member.xml`: insert(PK 받아오기), selectByEmail
 - [x] `MemberService` (interface + impl), 생성자 주입 (`final` + `@RequiredArgsConstructor`)
 - [x] `MemberController`: 가입 폼 → 가입 처리 → redirect (JSP는 튜터 제공)
-- [ ] 브라우저에서 가입 → DB에 행이 생긴 것 확인 (저장은 확인 ✅ / redirect·에러 메시지·F5 최종 확인 남음)
+- [x] 브라우저에서 가입 → DB에 행이 생긴 것 확인 (redirect·에러 메시지·F5 PRG까지 확인 ✅)
 
 **2-2. 리뷰 CRUD**
 - [ ] `Review` DTO, `ReviewDao` + `review.xml`: insert / select / delete / update
@@ -185,3 +185,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-12 | M1 진행 중 | 프로젝트 생성, 의존성·properties 완료, Auto Configuration 실험(A/B/C), 테이블 생성. **다음: 1-3 테스트 데이터 insert부터** (`STUDY_LOG.md` 📌 참고) |
 | 2026-11-14 | M1 완료 | DB 권한 문제(ssafy → root로 전환), 테스트 데이터 스크립트화, rating CHECK 실험(3819), `MainController` + `index.jsp` + `ConfigTest`(HikariDataSource) 통과. **다음: M2 2-1 `Member` DTO부터** |
 | 2026-11-15 | M2 진행 중 | 2-1: `Member` DTO, `MemberDao` + `member.xml`, `DBConfig`(`@MapperScan`), `MemberService`(중복 검사), DAO·Service 테스트(`@Transactional` rollback), `MemberController` + `signup.jsp` → 브라우저 가입 DB 저장 성공. **다음: 2-1 브라우저 최종 확인 3가지 → 2-2 리뷰 CRUD** (`STUDY_LOG.md` 📌 참고) |
+| 2026-11-15 | M2 진행 중 (2차) | **2-1 완료** (브라우저 redirect·에러 메시지·F5 PRG 확인). 2-2: `Review` DTO 1차 통과, `ReviewDao` 선언 작성 중. **다음: `ReviewDao` 리뷰 → `review.xml` SQL 4개** (`STUDY_LOG.md` 📌 참고) |
