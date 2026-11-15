@@ -11,4 +11,6 @@ public interface ReviewDao {
 	public int update(Review review);
 	
 	public int delete(int rno);
+	
+	public Review selectDetail(int rno);
 }

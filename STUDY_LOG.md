@@ -262,6 +262,14 @@ M1 완료 ✅ → M2 챕터로 이동
 - 역할(무엇을 하나: interface)과 구현(어떻게 하나: impl)이 분리되어 interface만 보면 기능 목록이 보임
 - 참고: Spring은 클래스로도 프록시(`@Transactional`, AOP)를 만들 수 있어서, 구현이 하나뿐이면 interface를 생략하는 팀도 있음. 교안·샘플 관례를 따라 우리는 나눈다
 
+**7. `resultMap` + `<association>` — 평평한 표를 2층 객체로**
+- `resultType` = "이름 같은 칸에 알아서 넣어" → 한 층(`Review`)만 채움. join으로 온 `name`은 `Review`에 `setName()`이 없어 **에러 없이 버려짐**
+- `resultMap` = **배치도**: `column`(결과 표 컬럼) → `property`(Java 필드). `<id>`는 PK 줄(같은 객체인지 구분 기준), 나머지는 `<result>`
+- `<association property="writer" javaType="Member">` = "이 컬럼들은 `writer` 필드의 `Member` 객체 안으로" (has-a 한 개). select에는 `resultType` 대신 `resultMap="배치도 id"`
+- 같은 이름 컬럼(`mno`, `created_at`)은 테이블 별칭 + `AS writer_mno`로 구분 → association의 `column`에 바뀐 이름
+- `<association>`이 있으면 기본 설정상 자동 매핑이 꺼짐 → 필요한 컬럼은 전부 적는다
+- update·delete에서 `WHERE`를 빠뜨리면 **모든 행**이 바뀜/삭제됨 (에러 없음)
+
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
@@ -303,6 +311,9 @@ M1 완료 ✅ → M2 챕터로 이동
 | `review.xml` 2차 | `keyProperty="rno"`, `#{imageName}`, update를 `SET(컬럼들) VALUES(값들)`로 | ✅ insert 완성 (keyProperty, imageName 둘 다 수정). ❌ update는 아직 문법 에러: INSERT는 **컬럼 목록 + 값 목록을 순서로 짝짓기**, UPDATE는 **`컬럼 = 값` 쌍을 쉼표로 나열** (괄호·VALUES 없음) / `mno`(작성자)는 수정 대상 아님 → SET에서 제외 |
 | `review.xml` 3차 | update를 `SET 컬럼 = #{필드}, ...` + `WHERE rno`로 | ✅ **UPDATE 문법 완성** (쉼표 앞에 두는 스타일 👍, WHERE 유지). ❌ `mno = #{mno}`가 아직 SET에 있음 → 작성자가 바뀔 수 있음 + 수정 폼에 mno가 없으면 0이 들어가 FK 에러 → SET에서 제외. 💅 `Set` → 키워드 대문자 `SET` 통일 |
 | `review.xml` 4차 | update SET에서 `mno` 제거 | ✅ **SQL 4개 완성**. 수정 가능한 것만 SET, 대상은 WHERE rno. 튜터 확인: `MemberDaoTest` 실행 시 `review.xml` 파싱 포함 앱 컨텍스트 정상 로딩 |
+| Q2-3. join 결과의 `name` 컬럼을 `resultType="Review"`만으로 받으면? | ① `Review`에는 `setName()`이 없다 ② MyBatis가 `Member`를 알아야 한다 | 🟡 ① ✅ 원인 정확. 빠진 것: 그 값은 **에러 없이 버려짐** (조용한 버그, `writer`는 null) ② 🟡 방향 맞음. 정확히는 "**`name` 컬럼은 `writer` 필드(`Member` 타입) 안의 `name`에 넣어라**" = 어느 필드로 + 어떤 타입으로 + 어느 컬럼을 → 이것이 `<association property javaType>` + `<result>` |
+| 워밍업. update에서 `WHERE`를 빠뜨리면? | (답 안 함) | → 튜터 설명: **테이블의 모든 행**이 같은 값으로 바뀜 (리뷰 전부가 같은 제목). 에러 아님. DELETE도 같음 → 전부 삭제. Workbench는 Safe Updates 모드로 막아 주지만 JDBC/MyBatis는 안 막음 |
+| 리뷰 상세 join | `Review`에 `Member writer` 필드, `ReviewDao.selectDetail(int rno)` 직접 작성 / `review.xml`은 **튜터에게 작성 요청** (주석 포함) | ✅ DTO·DAO 통과 (반환 `Review`: PK 조회라 최대 한 행). 튜터 작성: `reviewDetailMap`(`<id>` + `<result>` 6개 + `<association property="writer" javaType="Member">`) + join select (`m.mno AS writer_mno`, member `created_at`·`password` 제외). 💡 resultMap id를 select id와 같게(`selectDetail`) 했었음 → 허용은 되지만 헷갈려서 `...Map`으로 구분 |
 
 ### 🛠️ 트러블슈팅
 
@@ -360,7 +371,8 @@ M1 완료 ✅ → M2 챕터로 이동
   - [x] `Review` DTO ✅
   - [x] `ReviewDao` ✅
   - [x] `review.xml` SQL 4개 (insert / selectByRno / update / delete) ✅ (4차 리뷰 통과)
-  - [ ] 리뷰 상세 join: `Review`에 `Member writer` 필드 + `resultMap` + `<association>` ← 지금 할 일
+  - [x] 리뷰 상세 join: `Review.writer` + `selectDetail` + `reviewDetailMap` ✅ (XML은 튜터 작성)
+  - [ ] 리뷰 검색: `<where>` + `<if>` (키워드, 최소 별점) ← 다음 할 일
   - [ ] 셀프 퀴즈(M2 PLAN): `@Component`만 붙이면 빈이 될까? / `@Mapper` interface는 왜 주입될까? / `#{}` 대신 `${}`를 쓰면?
   - [ ] DAO 테스트 통과 후 실험: `@MapperScan` 주석 처리 → 두 DAO에 `@Mapper` → 같은 테스트 통과 확인 / (선택) 섞어 쓰면 `@Mapper` 쪽이 등록 안 되는 것 확인 → 하나로 정리
 

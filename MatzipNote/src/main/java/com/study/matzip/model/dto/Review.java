@@ -19,4 +19,5 @@ public class Review {
 	private int rating;
 	private String imageName;
 	private LocalDateTime createdAt;
+	private Member writer;
 }
