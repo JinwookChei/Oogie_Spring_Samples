@@ -210,6 +210,7 @@ M1 완료 ✅ → M2 챕터로 이동
 
 ### ✅ 한 일
 
+- 리뷰 검색 진행 (2026-11-16): `ReviewSearch` DTO + `ReviewDao.search` 통과, `review.xml` search 작성(3차 리뷰, XML 파싱 통과 / OR 괄호 남음), `ReviewDaoTest` 초안 작성(리뷰 전)
 - `MemberController` + `member/signup.jsp`(튜터 제공) + `index.jsp` 링크 → **브라우저에서 회원가입 → DB 저장 첫 관통** (2026-11-15)
 - **2-1 완료** ✅: 브라우저 최종 확인 3가지 통과 (성공 redirect / 중복 에러 메시지 / F5 PRG)
 - `Review` DTO 완성 (컬럼 7개 ↔ 필드 7개), 1차 리뷰 통과
@@ -270,6 +271,14 @@ M1 완료 ✅ → M2 챕터로 이동
 - `<association>`이 있으면 기본 설정상 자동 매핑이 꺼짐 → 필요한 컬럼은 전부 적는다
 - update·delete에서 `WHERE`를 빠뜨리면 **모든 행**이 바뀜/삭제됨 (에러 없음)
 
+**8. 동적 SQL — `<where>` + `<if>` (리뷰 검색)**
+- 검색 조건은 사용자가 **입력한 것만** SQL에 들어가야 함: 둘 다 → `WHERE 키워드 AND 별점` / 키워드만 → `WHERE 키워드` / 둘 다 비움 → **`WHERE` 자체가 없음**(전체 목록)
+- 문자열로 직접 이어 붙이면 생기는 문제: `WHERE AND rating >= 3`(앞에 남은 AND) / 내용 없이 끝나는 `WHERE` → 둘 다 SQL 문법 에러. 옛날 해결책은 `WHERE 1=1` 뒤에 `AND ...`를 붙이는 꼼수
+- `<if test="조건">` = 조건이 참일 때만 안의 SQL 조각을 넣는다. `test` 안에서는 파라미터 객체의 **필드 이름**을 그대로 쓴다 (`#{}` 없이)
+- `<where>` = 안에 들어간 내용이 **있을 때만** `WHERE`를 붙이고, 맨 앞의 `AND`/`OR`를 자동으로 지운다 → 그래서 모든 조건을 `AND ...`로 시작하게 써도 됨
+- (개념 9) `<if test="조건식">SQL 조각</if>`: 조건식이 true면 조각을 넣고 false면 뺀다. 조건식은 Java가 아니라 **OGNL**: 필드 이름 그대로(`#{}` 없음), `and`/`or`, `==`/`!=`, 문자열은 작은따옴표 `''`(속성이 큰따옴표라서). 타입별 "입력했나?": String → `x != null and x != ''` / Integer → `x != null`. 값 범위 검증은 `test`에 넣지 않는다
+- 빈 문자열 함정: 폼에서 키워드 칸을 비워 보내면 null이 아니라 `""` → `null` 검사만 하면 `LIKE '%%'`(전부 일치)가 들어감 → null과 빈 문자열을 **둘 다** 검사
+
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
@@ -314,6 +323,14 @@ M1 완료 ✅ → M2 챕터로 이동
 | Q2-3. join 결과의 `name` 컬럼을 `resultType="Review"`만으로 받으면? | ① `Review`에는 `setName()`이 없다 ② MyBatis가 `Member`를 알아야 한다 | 🟡 ① ✅ 원인 정확. 빠진 것: 그 값은 **에러 없이 버려짐** (조용한 버그, `writer`는 null) ② 🟡 방향 맞음. 정확히는 "**`name` 컬럼은 `writer` 필드(`Member` 타입) 안의 `name`에 넣어라**" = 어느 필드로 + 어떤 타입으로 + 어느 컬럼을 → 이것이 `<association property javaType>` + `<result>` |
 | 워밍업. update에서 `WHERE`를 빠뜨리면? | (답 안 함) | → 튜터 설명: **테이블의 모든 행**이 같은 값으로 바뀜 (리뷰 전부가 같은 제목). 에러 아님. DELETE도 같음 → 전부 삭제. Workbench는 Safe Updates 모드로 막아 주지만 JDBC/MyBatis는 안 막음 |
 | 리뷰 상세 join | `Review`에 `Member writer` 필드, `ReviewDao.selectDetail(int rno)` 직접 작성 / `review.xml`은 **튜터에게 작성 요청** (주석 포함) | ✅ DTO·DAO 통과 (반환 `Review`: PK 조회라 최대 한 행). 튜터 작성: `reviewDetailMap`(`<id>` + `<result>` 6개 + `<association property="writer" javaType="Member">`) + join select (`m.mno AS writer_mno`, member `created_at`·`password` 제외). 💡 resultMap id를 select id와 같게(`selectDetail`) 했었음 → 허용은 되지만 헷갈려서 `...Map`으로 구분 |
+| 복습. `m.mno`에 `AS writer_mno` 별칭이 없다면? | (튜터에게 설명 요청, 2026-11-16) | → 결과 표에 `mno` 컬럼이 **두 개** 생김. resultMap은 컬럼을 **이름**으로 찾으므로 둘을 구분할 수 없고, 보통 앞쪽 컬럼 값을 씀. 지금은 `ON r.mno = m.mno`라 두 값이 같아서 **우연히 맞음** → 값이 다른 컬럼(`created_at`)이었다면 리뷰 작성일 자리에 가입일이 들어가는 조용한 버그. 별칭은 이름을 하나로 정해 주는 것 |
+| Q1·Q2. 키워드만 / 둘 다 비웠을 때 WHERE는? | (튜터에게 설명 요청) | → 키워드만이면 `AND rating ...`이 빠져야 하고, 둘 다 비면 `WHERE` 자체가 없어야 함. 직접 이어 붙이면 `WHERE AND ...`, 끝에 남은 `WHERE` → 문법 에러 → 개념 8 |
+| `ReviewSearch` DTO + `ReviewDao.search` | `String keyword`, `Integer minRating`, Lombok 4종 / `List<Review> search(ReviewSearch)` | ✅ **한 번에 통과**. `Integer` 선택 정답: `int`는 비우면 0 → "비움"과 "0점 이상"을 구분 못 함 / `Integer`는 null → `<if test>`에서 null 검사로 구분. 반환 `List` = 여러 행 (0건이면 빈 List, null 아님). 💅 interface의 `public` 생략 가능(기존과 통일해 둬도 OK) |
+| `review.xml` search 1차 | `<where>` + `<if>` 2개: `test="1 <= minRating and minRating <= 5"` → `rating = #{minRating}` / `keyword != null and keyword != ''` → `content LIKE CONCAT(...)` | 👍 `resultType="Review"`(한 행 타입), 키워드 test(null + 빈 문자열) 완벽, 조각을 `AND`로 시작, `CONCAT` 사용. ❌ **`test` 속성 안의 `<`** → XML 문법 위반, 파일 전체 파싱 실패(튜터 확인: 60행) → **앱 시작/모든 테스트 실패** → `&lt;` 또는 `lt`/`lte` 같은 OGNL 단어 연산자 / ❌ `rating =` → "최소 별점"이면 `>=` (= 은 정확히 그 별점만) / ❌ 키워드가 `content`만 검색 → 제목도 (`OR` + 괄호 함정, 답 대기) / 🟡 범위 검사(1~5)는 DAO가 아니라 입력 검증(Controller/Service) 몫, DAO의 `test`는 "조건이 **있나 없나**"(null 검사)만 / 💅 `ORDER BY` 최신순 |
+| `review.xml` search 2차 | `test="1 &lte minRating and minRating &lte 5"`, `rating >= #{minRating}` | ✅ `>=` 수정. ❌ `&lte` = 두 방법을 섞음 → XML 엔티티는 `&이름;`(세미콜론 필수, `&lt;`= `<` 한 글자), OGNL 단어 연산자는 `&` 없이 `lte` → 아직 60행 파싱 실패(튜터 확인) / ❌ 키워드 `content`만 + 괄호 질문 미답 / 🟡 범위 검사 여전히 DAO에 → `minRating != null`이면 1번 문제 자체가 사라짐 |
+| (요청) 어디를 바꿀지 주석으로 표시해 달라 | — | → 튜터가 `review.xml` search에 `TODO: 1`(test를 null 검사로) / `TODO: 2`(title OR content + 괄호) / `TODO: 3`(선택, ORDER BY 위치) 주석만 추가. 정답 코드는 넣지 않음. 고친 뒤 TODO 주석은 직접 지우기 |
+| (질문) 60행 `test`를 어떻게 고치라는 건지? / 키워드에 `OR title LIKE` 추가(괄호 없음) | — | → `test`의 질문은 "값이 올바른가?"가 아니라 "**사용자가 입력했나?**" → 바로 아래 키워드 `test`의 앞부분과 같은 패턴(숫자라 빈 문자열 검사는 불필요). 🟡 OR 추가 👍, 하지만 괄호 없음 → `(content AND rating) OR title`로 묶여 별점 4 이상 검색에도 제목에 키워드만 있으면 1점 리뷰가 섞임 |
+| `review.xml` search 3차 | `test="1 &lt;= minRating and minRating &lt;= 5"`, 키워드 `content ... OR title ...`(괄호 없음) | ✅ `&lt;=` 엔티티 정확 → **XML 파싱 통과**(튜터 확인). 🟡 동작은 함: OGNL이 비교할 때 null을 0으로 바꿔서 `1 <= 0` = false → 조건 빠짐. 하지만 ① "입력했나?"라는 의도가 안 보이고 null→0 변환에 숨어서 기댐 ② 7·0 같은 잘못된 값이 **에러 없이 무시**되어 전체 목록이 나옴(사용자는 모름) → `minRating != null` 권장, 범위는 M3 검증. ❌ OR 괄호 아직 없음 → 별점 필터가 title 쪽에 안 걸림 (테스트로 증명 예정) |
 
 ### 🛠️ 트러블슈팅
 
@@ -355,6 +372,11 @@ M1 완료 ✅ → M2 챕터로 이동
 
 - `mybatis.mapper-locations=classpath:mappers/**/*.xml` 해석? → `classpath:` = 빌드 후 클래스패스 루트(`src/main/resources`의 내용이 복사되는 곳) / `mappers/` 폴더 / `**` = 하위 폴더 몇 단계든(0단계 포함) / `*.xml` = 이름 상관없이 xml 전부 → `mappers/member.xml`, `mappers/review/review.xml` 모두 해당. MyBatis가 이 xml들을 읽어 namespace로 DAO와 연결
 
+- `<where>` `<if>` 사용 예제를 보여 달라 (2026-11-16) → 맛집 노트와 다른 **상품(product) 검색** 예제로 설명: `<if test="name != null and name != ''">`, `AND`로 시작하는 조각, 입력 조합별로 만들어지는 SQL 3가지, `test`는 필드 이름·`and`/`or`·`==`/`!=`, XML에서 `<=`는 `&lt;=`. 샘플 `FW_07` `address.xml`의 `dynamicSelect`(`<trim prefix="where" prefixOverrides="or|and">` = `<where>`의 원리)와 `member.xml`의 `searchCondition`(`<sql>` + `<include>`)도 같은 패턴. ⚠️ OR 괄호 함정은 예제에서 빼고 직접 풀기로
+
+- `<if test>` 문법을 다시 정리해 달라 → 📚 개념 9
+- `&lt;`는 언제 어떻게 쓰나? → XML에서 `<`는 "태그 시작" 예약 문자 → 글자로서의 `<`가 필요하면 **엔티티** `&lt;`(less than)로 쓴다. 형식은 `&` + 이름 + `;`(세미콜론 필수). `<=`는 `&lt;=`. 자주 쓰는 것: `&lt;`(<) `&gt;`(>) `&amp;`(&). `>`는 그대로 써도 됨. 대안: SQL 조각 안에서는 `<![CDATA[ ... ]]>`(속성 안에서는 불가), `test` 안에서는 OGNL 단어 `lt`/`lte`/`gt`/`gte`. `&lte`는 둘을 섞은 것이라 오류. 지금 검색에서는 쓸 일 없음(null 검사만)
+
 ### ⏭️ 남은 일
 
 - [x] 2-1 회원가입 한 줄 관통 ✅
@@ -372,11 +394,30 @@ M1 완료 ✅ → M2 챕터로 이동
   - [x] `ReviewDao` ✅
   - [x] `review.xml` SQL 4개 (insert / selectByRno / update / delete) ✅ (4차 리뷰 통과)
   - [x] 리뷰 상세 join: `Review.writer` + `selectDetail` + `reviewDetailMap` ✅ (XML은 튜터 작성)
-  - [ ] 리뷰 검색: `<where>` + `<if>` (키워드, 최소 별점) ← 다음 할 일
+  - [ ] 리뷰 검색: `<where>` + `<if>` (키워드, 최소 별점) ← 진행 중
+    - [x] `ReviewSearch` DTO (`String keyword`, `Integer minRating`) + `ReviewDao.search` (`List<Review>`) ✅
+    - [x] `review.xml` search: XML 파싱 통과 (`&lt;=`), `rating >=`, 키워드 test ✅
+    - [ ] ❌ 키워드 `content OR title` **괄호로 묶기** ← 다음 할 일
+    - [ ] 🟡 (권장) 별점 test를 범위 비교 → `minRating != null`로
+    - [ ] 💅 (선택) `ORDER BY` 최신순
   - [ ] 셀프 퀴즈(M2 PLAN): `@Component`만 붙이면 빈이 될까? / `@Mapper` interface는 왜 주입될까? / `#{}` 대신 `${}`를 쓰면?
   - [ ] DAO 테스트 통과 후 실험: `@MapperScan` 주석 처리 → 두 DAO에 `@Mapper` → 같은 테스트 통과 확인 / (선택) 섞어 쓰면 `@Mapper` 쪽이 등록 안 되는 것 확인 → 하나로 정리
 
-### 📌 다음 세션 시작점 (2026-11-15 3차 세션 종료)
+### 📌 다음 세션 시작점 (2026-11-16 4차 세션 종료)
+
+1. **`review.xml` search 마무리부터** (3차 리뷰까지 진행, 🙋 표 참고)
+   - ❌ 키워드의 `content LIKE ... OR title LIKE ...`를 **괄호로 묶기** → 안 묶으면 `(rating AND content) OR title`로 해석되어 별점 필터가 title 쪽에 안 걸림
+   - 🟡 별점 `test="1 &lt;= minRating and minRating &lt;= 5"`: 동작은 함(OGNL이 null을 0으로 비교) → 의도 표현·잘못된 값 조용히 무시 문제로 `minRating != null` 권장 (교육생 선택)
+   - 💅 `ORDER BY` 최신순 (`</where>` 바깥)
+   - ❓ 괄호 질문 답 아직 못 들음: "괄호 없이 쓰면 어떤 리뷰가 잘못 섞이나?"
+2. **`ReviewDaoTest` 리뷰** — 교육생이 세션 중 **초안을 이미 작성**(아직 리뷰 전): `@SpringBootTest` + `searchTest`(keyword "너무", minRating 1, 결과 로그 출력)
+   - 튜터 메모(리뷰 때 짚을 것): 필드 `@Autowired`인데 `@RequiredArgsConstructor` 붙음 → 의미 없음(테스트는 필드 주입 or 생성자에 `@Autowired`) / `assertNotNull(reviewDao)`만 있고 **결과 검증 없음** → 로그만으로는 항상 초록 / 괄호 버그 증명 테스트: 제목에만 키워드가 있는 1점 리뷰를 insert → minRating 4로 검색 → 결과에 없어야 함 (`@Transactional`로 rollback) / 키워드만·별점만·둘 다 비움 3경우 / 생성된 SQL을 DEBUG 로그로 확인
+   - 이어서 insert(rno 채워짐) / `selectDetail`(`writer.name`) / update / delete
+   - ⚠️ `@MybatisTest`로 바꿀 때: `DBConfig`의 `@MapperScan`을 안 읽을 수 있음 + 내장 DB 교체(`@AutoConfigureTestDatabase(replace = NONE)`) → `@Mapper` 실험과 연결
+3. 그다음: 셀프 퀴즈 3개(`#{}` vs `${}`는 검색 LIKE와 연결) → M2 완료 기준 확인 → Notion 업로드
+4. 환경 메모: 앱·Workbench **root/1234**. ⚠️ STS 저장(`Ctrl + S`) 확인. 튜터는 `review.xml` XML 문법을 파이썬 파서로 확인 중(DB 직접 조회는 권한 거부됨 → 필요하면 교육생이 Workbench로 확인)
+
+#### (지난) 3차 세션 종료 시점 기록
 
 1. **리뷰 검색 개념 질문부터** (답 대기 중): "키워드만 입력하고 별점은 비웠다면 `WHERE`절은 어떻게 달라져야 할까? 둘 다 비웠다면?"
    - 답을 들은 뒤 → `<where>` + `<if test="...">` 개념 (빈 조건이면 `WHERE` 자체가 빠짐, 앞의 `AND` 자동 정리)

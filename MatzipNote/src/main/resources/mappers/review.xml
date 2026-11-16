@@ -28,19 +28,8 @@
 	</delete>
 	
 	
-	<!--
-		[리뷰 상세 배치도] join 결과(평평한 표)를 Review 안에 Member가 든 2층 객체로 옮기는 설명서
-		- id   : 이 배치도의 이름. select의 resultMap 속성에서 이 이름으로 부른다
-		         (select id와 같은 이름도 허용되지만 헷갈리므로 '...Map'으로 구분)
-		- type : 큰 상자의 타입 = DAO 메서드 selectDetail의 반환 타입 Review (alias)
-		- column = 결과 표의 컬럼 이름 / property = Java 필드 이름
-		※ <association>이 있는 resultMap에서는 MyBatis 기본 설정상 자동 매핑이 꺼진다
-		   → camel-case 설정이 있어도 필요한 컬럼은 전부 적어 준다
-	-->
 	<resultMap id="reviewDetailMap" type="Review">
-		<!-- 큰 상자(Review)의 대표 번호(PK): 같은 Review인지 구분하는 기준 -->
 		<id     column="rno"        property="rno"/>
-		<!-- 큰 상자의 나머지 칸 (컬럼 snake_case → 필드 camelCase는 여기서 직접 짝지음) -->
 		<result column="mno"        property="mno"/>
 		<result column="title"      property="title"/>
 		<result column="content"    property="content"/>
@@ -48,34 +37,34 @@
 		<result column="image_name" property="imageName"/>
 		<result column="created_at" property="createdAt"/>
 
-		<!--
-			[작은 상자] Review의 writer 필드(has-a)를 채우는 구역
-			- property : Review 안의 필드 이름 (writer)
-			- javaType : 그 필드의 타입. MyBatis가 new Member()로 만들어 채운 뒤 setWriter()로 넣는다
-		-->
 		<association property="writer" javaType="Member">
-			<!-- 작은 상자의 대표 번호: SQL에서 붙인 별칭 writer_mno를 Member.mno에 -->
 			<id     column="writer_mno" property="mno"/>
 			<result column="email"      property="email"/>
 			<result column="name"       property="name"/>
-			<!-- password는 SELECT하지 않는다 (화면에 필요 없고, 비밀번호는 꺼내지 않는 게 원칙) -->
 		</association>
 	</resultMap>
 
-	<!--
-		[리뷰 상세] 리뷰 + 작성자 join
-		- resultType이 아니라 resultMap: "알아서 넣어"가 아니라 "위 배치도대로 넣어"
-		- 테이블 별칭 r, m: 두 테이블에 같은 이름의 컬럼(mno, created_at)이 있어 어느 쪽인지 밝힌다
-		- m.mno AS writer_mno: 결과 표에 mno가 두 번 나오지 않게 이름을 바꿈 → association의 column과 짝
-		- member의 created_at은 상세 화면에 안 쓰므로 SELECT에서 뺐다 (이름 충돌도 함께 사라짐)
-		- 결과는 최대 한 행(rno = PK) → DAO 반환 타입은 List가 아니라 Review, 없으면 null
-	-->
 	<select id="selectDetail" resultMap="reviewDetailMap">
 		SELECT r.rno, r.mno, r.title, r.content, r.rating, r.image_name, r.created_at
 		     , m.mno AS writer_mno, m.email, m.name
-		FROM review r
-		JOIN member m ON r.mno = m.mno
+		FROM 
+		review r JOIN member m 
+		ON r.mno = m.mno
 		WHERE r.rno = #{rno}
 	</select>
-
+	
+	<select id="search" resultType="Review">
+		SELECT *
+		FROM review
+		<where>
+			<if test="1 &lt;= minRating and minRating &lt;= 5">
+				AND rating >= #{minRating}
+			</if>
+			<if test="keyword != null and keyword != ''">
+				AND content LIKE CONCAT('%', #{keyword}, '%')
+				OR title LIKE CONCAT('%', #{keyword}, '%')
+			</if>
+		</where>
+	</select>
+	
 </mapper>
