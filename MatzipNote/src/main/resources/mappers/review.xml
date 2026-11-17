@@ -57,12 +57,12 @@
 		SELECT *
 		FROM review
 		<where>
-			<if test="1 &lt;= minRating and minRating &lt;= 5">
+			<if test="minRating != null">
 				AND rating >= #{minRating}
 			</if>
 			<if test="keyword != null and keyword != ''">
-				AND content LIKE CONCAT('%', #{keyword}, '%')
-				OR title LIKE CONCAT('%', #{keyword}, '%')
+				AND (content LIKE CONCAT('%', #{keyword}, '%')
+				OR title LIKE CONCAT('%', #{keyword}, '%'))
 			</if>
 		</where>
 	</select>

@@ -141,6 +141,14 @@
   - 의존성의 클래스가 **전부** 빈이 되는 게 아님. 자동 설정 클래스가 `@Bean`으로 만들기로 정한 것만 (예: `HikariDataSource`는 빈, Hikari의 다른 내부 클래스는 아님)
   - 직접 만들기는 범위 밖, 구조만 이해
 
+**10. AND/OR 우선순위와 괄호, 회귀 테스트**
+- SQL에서 `AND`가 `OR`보다 먼저 묶인다 (× 가 + 보다 먼저인 것과 같음): `A AND B OR C` = `(A AND B) OR C`
+- 검색에서 괄호가 없으면 → **별점 4 미만 + 제목에만 키워드**인 리뷰가 섞인다 (C 하나만 참이어도 통과)
+- 괄호 위치: 연결어 `AND`는 괄호 **밖 맨 앞**(그래야 `<where>`가 지울 수 있음), 괄호는 묶을 두 조건만. `(AND ...`로 쓰면 `<where>`가 `(`로 시작해 AND를 못 지움 → 문법 에러
+- DEBUG 로그의 `Preparing:`(만들어진 SQL) / `Parameters:`(`?`에 들어간 값)로 동적 SQL을 확인한다
+- **회귀 테스트**: 고친 버그가 다시 생기면 빨간불이 켜지는 테스트. "괄호가 없을 때만 결과에 섞이는" 함정 데이터를 넣고, 결과에 **없어야 한다**고 검증 (`anyMatch` → `assertFalse`, `allMatch`). 로그만 찍는 테스트는 항상 초록
+- `@BeforeEach`도 `@Transactional` 테스트와 **같은 트랜잭션** → 함께 rollback. 테스트가 기존 DB 데이터에 기대지 않게 필요한 데이터를 직접 만든다
+
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
@@ -155,6 +163,13 @@
 | 셀프 퀴즈 2: Controller를 `com.study.controller`에 두면? | 404. 메인 클래스 패키지의 하위만 스캔하기 때문 | ✅ 정답. 메인 클래스 패키지는 `com.study.matzip` (답에 `com.study.controller.matzip`으로 오타). 스캔 안 됨 → 빈 없음 → 매핑 없음 → 404 |
 | 셀프 퀴즈 3: 왜 `HikariDataSource` 대신 `DataSource`로 받나? | 다른 라이브러리로 교체가 쉽게 | ✅ 정답 (PSA, 구현체에 묶이지 않음) |
 | 의존성만 추가했는데 실행이 왜 실패하나? | DataSource url이 없다고 나와 | ✅ 정답. 직접 MyBatis를 빼고 실행해 보는 실험까지 함 👏 |
+| `review.xml` search 4차 (2026-11-17) | 키워드 조건을 `(AND content ... OR title ...)`로 | 👍 괄호를 `<if>` **안**에 둔 것 정답. ❌ `AND`까지 괄호 안 → `<where>`가 AND를 못 지움(키워드만: `WHERE (AND ...`) + 둘 다: `rating >= ? (AND ...` 연결어 없음 → 둘 다 문법 에러 |
+| `review.xml` search 5차 | `AND (content ... OR title ...)` | ✅ **통과**. 실행 로그 `WHERE rating >= ? AND (content LIKE ... OR title LIKE ...)`, `?` 3개, Total 2 |
+| `review.xml` search 6차 | 별점 `test="minRating != null"` | ✅ **search 완성**. `Integer`라 null 검사 가능(지난번 선택이 효과), 잘못된 값(7)이 조용히 무시되지 않고 0건으로 드러남 |
+| 괄호가 없으면 어떤 리뷰가 섞이나? | "`A AND (B OR C)`로 수정되지 않았어?" → 넘어감 | 🟡 지금 코드는 맞게 고쳐진 상태 ✅. 질문은 **고치기 전**을 묻는 것(회귀 테스트용) → 튜터 답: 별점 4 미만 + 제목에만 키워드 |
+| `ReviewDaoTest` 재작성 | (튜터에게 작성 요청) | → 튜터 작성 (주석 포함): `@RequiredArgsConstructor` 제거, `@Transactional`, `@BeforeEach` 테스트 회원, 로그 대신 assert. 3개 통과 |
+| 이해 확인: 함정을 본문에 넣으면? / `@BeforeEach` 회원이 안 남는 이유? | (넘어감) | → 본문에 넣으면 괄호 유무와 결과가 같아 버그를 못 잡음 / 같은 트랜잭션이라 rollback |
+| M2 셀프 퀴즈 3개 | (넘어감) | → 튜터 답: Q1 `@ComponentScan` 범위(메인 클래스 패키지 하위) 안이어야 빈 / Q2 `@MapperScan` → MyBatis가 interface를 **구현한 프록시** 생성, namespace+id로 SQL 실행 / Q3 `#{}` = `?` 값 바인딩(PreparedStatement), `${}` = SQL에 그대로 붙음 → `' OR '1'='1` 입력 시 **SQL Injection** (`${}`는 컬럼명·정렬 방향처럼 값이 아닌 자리에 허용 목록 검사 후만) |
 
 ### 🛠️ 트러블슈팅
 
@@ -206,10 +221,13 @@ M1 완료 ✅ → M2 챕터로 이동
 
 ---
 
-## M2. 회원가입 관통 + MyBatis CRUD — 🟡 진행 중
+## M2. 회원가입 관통 + MyBatis CRUD — ✅ 완료 (2026-11-17, 일부 미룸) · [Notion](https://app.notion.com/p/41b6412b0acd81c6983aeffe279081f1)
 
 ### ✅ 한 일
 
+- **리뷰 검색 완성** (2026-11-17): `review.xml` search 키워드 조건 괄호 `AND (content ... OR title ...)` + 별점 `minRating != null` → 실행 로그로 SQL 확인
+- `ReviewDaoTest` 재작성 (교육생 요청으로 튜터 작성): `@BeforeEach` 테스트 회원 / `insertTest` / `searchTest`(괄호 회귀 테스트) / `searchWithoutConditionTest` → 3개 통과
+- M2 마무리: join 상세·update·delete 테스트, `@MybatisTest`, `@Mapper` 실험은 **M3로 미룸** (교육생 결정)
 - 리뷰 검색 진행 (2026-11-16): `ReviewSearch` DTO + `ReviewDao.search` 통과, `review.xml` search 작성(3차 리뷰, XML 파싱 통과 / OR 괄호 남음), `ReviewDaoTest` 초안 작성(리뷰 전)
 - `MemberController` + `member/signup.jsp`(튜터 제공) + `index.jsp` 링크 → **브라우저에서 회원가입 → DB 저장 첫 관통** (2026-11-15)
 - **2-1 완료** ✅: 브라우저 최종 확인 3가지 통과 (성공 redirect / 중복 에러 메시지 / F5 PRG)
@@ -389,21 +407,35 @@ M1 완료 ✅ → M2 챕터로 이동
   - [x] 브라우저 최종 확인 3가지 ✅ (2026-11-15): 새 이메일 가입 → 메인 redirect / `kim@matzip.com` → 폼에 에러 메시지 / F5 → 회원 추가 안 됨 (PRG)
   - [ ] (💅 선택) 실패 시 입력값 유지(`value="${member.name}"`) (`int mno` 정리는 완료 ✅)
   - [ ] (미확인) `MemberServiceTest` 실행 결과 공유: 초록 2개, 로그의 mno·`createdAt`(insert 직후 객체엔 null인 이유), 예외 메시지
-- [ ] 2-2 리뷰 CRUD + `@MybatisTest`
+- [x] 2-2 리뷰 CRUD ✅ (`@MybatisTest`는 미룸)
   - [x] `Review` DTO ✅
   - [x] `ReviewDao` ✅
   - [x] `review.xml` SQL 4개 (insert / selectByRno / update / delete) ✅ (4차 리뷰 통과)
   - [x] 리뷰 상세 join: `Review.writer` + `selectDetail` + `reviewDetailMap` ✅ (XML은 튜터 작성)
-  - [ ] 리뷰 검색: `<where>` + `<if>` (키워드, 최소 별점) ← 진행 중
+  - [x] 리뷰 검색: `<where>` + `<if>` (키워드, 최소 별점) ✅ (2026-11-17)
     - [x] `ReviewSearch` DTO (`String keyword`, `Integer minRating`) + `ReviewDao.search` (`List<Review>`) ✅
     - [x] `review.xml` search: XML 파싱 통과 (`&lt;=`), `rating >=`, 키워드 test ✅
-    - [ ] ❌ 키워드 `content OR title` **괄호로 묶기** ← 다음 할 일
-    - [ ] 🟡 (권장) 별점 test를 범위 비교 → `minRating != null`로
-    - [ ] 💅 (선택) `ORDER BY` 최신순
-  - [ ] 셀프 퀴즈(M2 PLAN): `@Component`만 붙이면 빈이 될까? / `@Mapper` interface는 왜 주입될까? / `#{}` 대신 `${}`를 쓰면?
-  - [ ] DAO 테스트 통과 후 실험: `@MapperScan` 주석 처리 → 두 DAO에 `@Mapper` → 같은 테스트 통과 확인 / (선택) 섞어 쓰면 `@Mapper` 쪽이 등록 안 되는 것 확인 → 하나로 정리
+    - [x] 키워드 `content OR title` **괄호로 묶기** ✅ (2026-11-17 5차 리뷰 통과: `AND (... OR ...)`, 실행 로그 `WHERE rating >= ? AND (content LIKE ... OR title LIKE ...)` Total 2 확인)
+      - (5차 세션 4차 리뷰) 괄호를 `<if>` 안에 넣은 건 ✅. 단 `(AND content ... OR title ...)`처럼 **`AND`까지 괄호 안** → `<where>`가 `(`로 시작해 AND를 못 지움(키워드만: `WHERE (AND ...` 에러) + 둘 다: `rating >= ? (AND ...` 연결어 없음 에러 → `AND`는 괄호 밖 맨 앞, 괄호는 두 LIKE만
+    - [x] 🟡 별점 test를 범위 비교 → `minRating != null`로 ✅ (2026-11-17, `Integer`라 null 검사 가능, 실행 확인)
+    - [ ] 💅 (선택) `ORDER BY` 최신순 (건너뜀)
+    - 괄호 질문은 교육생이 넘어가길 원해 튜터가 답 제시 (2026-11-17): 괄호 없으면 `(A AND B) OR C` → **별점 4 미만 + 제목에만 키워드**인 리뷰가 섞임 → 회귀 테스트의 함정 리뷰로 사용
+  - [x] `ReviewDaoTest` 재작성 ✅ (2026-11-17, **교육생 요청으로 튜터 작성**, 주석 포함): `@BeforeEach`로 테스트 회원 insert(rollback됨) / `insertTest` / `searchTest` 회귀(함정 리뷰) / `searchWithoutConditionTest`(WHERE 빠짐) → 3개 통과
+    - [ ] 교육생 실험: 괄호 지우고 `searchTest` 빨간불 확인 → 원복
+    - (실험·이해 확인 질문은 교육생이 넘김 → 튜터가 답 정리: 본문에 키워드면 괄호 유무와 결과 같아 버그 못 잡음 / `@BeforeEach`도 같은 트랜잭션이라 rollback)
+    - [ ] ⏸️ (미룸, 2026-11-17 교육생 결정) `selectDetail` / update / delete 테스트 + `@MybatisTest` 전환 → M2 완료 기준(join 상세·delete 테스트) 미충족 상태, M3 `ReviewService` 때 보강 (교육생 작성, 요구사항 제시: writer not null·name·mno, createdAt not null(DB DEFAULT) / update 후 selectByRno로 다시 꺼내 비교 / delete 후 selectByRno null / 💅 insert 도우미 메서드)
+  - (이전 기록) `ReviewDaoTest` 요구사항 (요구사항 제시: `@RequiredArgsConstructor` 제거, 클래스 `@Transactional`, `MemberDao.selectByEmail`로 mno 확보, `insertTest`(반환 1 + rno 채워짐), `searchTest` 회귀(함정 리뷰 insert → minRating 4 + "너무" → 함정 rno 없음 + 전부 rating≥4), 괄호 지워 빨간불 확인)
+  - [x] 셀프 퀴즈(M2 PLAN) — 교육생이 넘김, 튜터 답은 🙋 표 (복습 권장): `@Component`만 붙이면 빈이 될까? / `@Mapper` interface는 왜 주입될까? / `#{}` 대신 `${}`를 쓰면?
+  - [ ] ⏸️ (미룸 → M3) DAO 테스트 통과 후 실험: `@MapperScan` 주석 처리 → 두 DAO에 `@Mapper` → 같은 테스트 통과 확인 / (선택) 섞어 쓰면 `@Mapper` 쪽이 등록 안 되는 것 확인 → 하나로 정리
 
-### 📌 다음 세션 시작점 (2026-11-16 4차 세션 종료)
+### 📌 다음 세션 시작점
+
+M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 미룬 일(⏭️ ⏸️ 표시):
+- `ReviewDaoTest`: `selectDetail`(writer) / update / delete 테스트 → M3 `ReviewService`의 수정·삭제와 함께
+- `@MybatisTest` 전환 + `@Mapper` 실험 (선택)
+- 교육생 실험: 괄호 지우고 `searchTest` 빨간불 확인
+
+#### (지난) 4차 세션 종료 시점 기록 (2026-11-16)
 
 1. **`review.xml` search 마무리부터** (3차 리뷰까지 진행, 🙋 표 참고)
    - ❌ 키워드의 `content LIKE ... OR title LIKE ...`를 **괄호로 묶기** → 안 묶으면 `(rating AND content) OR title`로 해석되어 별점 필터가 title 쪽에 안 걸림

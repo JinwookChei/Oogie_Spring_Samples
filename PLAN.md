@@ -89,7 +89,7 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
-### M2. 회원가입 관통 + MyBatis CRUD 🔍 · 4~6시간
+### M2. 회원가입 관통 + MyBatis CRUD 🔍 · 4~6시간 — ✅ 완료 (2026-11-17, 일부 미룸)
 교안: Framework, DI, Bean 등록, Spring & MyBatis · 샘플: FW_07 `member.xml`, `address.xml`
 
 **2-1. 회원가입 한 줄 관통**
@@ -102,8 +102,8 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 **2-2. 리뷰 CRUD**
 - [x] `Review` DTO, `ReviewDao` + `review.xml`: insert / select / delete / update
 - [x] 리뷰 상세: review + 작성자 join → `resultMap` + `<association>` (XML은 튜터 작성)
-- [ ] 리뷰 검색: 키워드, 최소 별점 → `<where>` + `<if>`
-- [ ] `@MybatisTest`로 DAO 테스트 (`@Transactional` 롤백 확인)
+- [x] 리뷰 검색: 키워드, 최소 별점 → `<where>` + `<if>` (괄호 회귀 테스트 포함)
+- [ ] `@MybatisTest`로 DAO 테스트 (`@Transactional` 롤백 확인) — ⏸️ `@SpringBootTest`로 insert·검색만 통과, join 상세·update·delete·`@MybatisTest`는 M3로 미룸
 
 **셀프 체크**: `@Component`만 붙이면 빈이 될까? `@Mapper` interface는 구현 클래스가 없는데 왜 주입될까? `#{}` 대신 `${}`를 쓰면 무슨 일이 생길까?
 
@@ -188,3 +188,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-15 | M2 진행 중 (2차) | **2-1 완료** (브라우저 redirect·에러 메시지·F5 PRG 확인). 2-2: `Review` DTO 1차 통과, `ReviewDao` 선언 작성 중. **다음: `ReviewDao` 리뷰 → `review.xml` SQL 4개** (`STUDY_LOG.md` 📌 참고) |
 | 2026-11-15 | M2 진행 중 (3차) | 2-2: `ReviewDao` 완성, `review.xml` CRUD 4개(4차 리뷰 통과), 리뷰 상세 join(`Review.writer` + `reviewDetailMap` + `<association>`, XML은 튜터 작성). **다음: 검색 개념 질문 → `ReviewSearch` + `<where>`/`<if>` → `ReviewDaoTest`** (`STUDY_LOG.md` 📌 참고) |
 | 2026-11-16 | M2 진행 중 (4차) | 2-2 검색: 동적 SQL 개념(`<where>`/`<if>`, OGNL test, `&lt;` 엔티티), `ReviewSearch` DTO(`Integer minRating`) + `ReviewDao.search` 통과, `review.xml` search 3차까지(XML 파싱 통과). **다음: OR 괄호 수정 → `ReviewDaoTest`(초안 있음) 리뷰** (`STUDY_LOG.md` 📌 참고) |
+| 2026-11-17 | **M2 완료** (일부 미룸) | 검색 괄호 `AND (... OR ...)` + `minRating != null`, `ReviewDaoTest`(튜터 작성: insert·괄호 회귀·조건 없음) 3개 통과, 셀프 퀴즈 답 정리, Notion 업로드. 미룸: join 상세·update·delete 테스트, `@MybatisTest`/`@Mapper` 실험. **다음: M3 로그인·로그아웃** |
