@@ -468,3 +468,80 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 3. 그다음: 리뷰 상세 join(`resultMap` + `<association>`, `Review`에 `Member` 필드 추가: Q2-2 답) → 검색(`<where>` + `<if>`) → `@MybatisTest` DAO 테스트
    - ⚠️ `@MybatisTest`는 슬라이스 테스트라 별도 `@Configuration`(`DBConfig`)의 `@MapperScan`을 안 읽을 수 있음 → 이때 `@Mapper` 실험과 연결 (위 ⏭️ 참고)
 4. 환경 메모: 이 컴퓨터는 앱·Workbench 모두 **root/1234**. STS의 `.properties` 인코딩은 UTF-8로 설정 완료. ⚠️ STS에서 작성 후 **저장(`Ctrl + S`)** 확인 (이번 세션에 미저장 상태로 리뷰 요청이 두 번 있었음)
+
+---
+
+## M3. MVC 요청 처리 — 🟡 진행 중
+
+### ✅ 한 일
+
+- M3 시작 (2026-11-17)
+- **3-1 로그인·로그아웃 완료** ✅ (2026-11-17): `MemberService.login`(통합 실패 메시지, password null) + `MemberServiceTest` 5개(튜터 작성) + `MemberController`(`/member/signup`·`/member/login` GET/POST 통합, `POST /member/logout` + `invalidate()`) + `login.jsp` + `index.jsp`(`<c:choose>`, 로그아웃 POST 폼) → 브라우저 확인 4가지 통과
+
+### 📚 배운 개념
+
+**1. 세션과 로그인**
+- HTTP는 무상태 → 로그인 성공 시 Tomcat이 서버 메모리에 **세션 저장소**를 만들고 그 번호를 `JSESSIONID` 쿠키로 보냄 → 브라우저가 매 요청에 자동 첨부 → 서버가 번호로 저장소를 찾아 "같은 사람" 판단
+- 세션 저장소는 Spring이 아니라 **WAS(Tomcat)** 영역. Controller는 `HttpSession`으로 넣고(`setAttribute`) 빼고(`getAttribute`) 끝낼(`invalidate`) 뿐
+- 세션에는 필요한 것만: **`password`는 넣지 않는다** (로그인 비교 후 쓸 일 없음, `${loginUser}`·로그의 `toString()`으로 노출) → 세션에 넣기 전 `password`를 비움. 실무는 해시 저장(`PasswordEncoder`, 범위 밖)
+
+**2. 실패 시 redirect하지 않는 이유 (Model의 수명)**
+- `Model` = **요청 한 번**만 사는 메모지. 뷰를 바로 반환하면 같은 요청 안에서 JSP가 읽음 → 에러 보임
+- redirect = 브라우저에 "이 주소로 다시 와" → **새 요청** → 새 Model → 에러 메시지 사라짐
+- 성공 정보는 **세션**에 넣었으므로 redirect해도 유지 (PRG). 실패한 로그인은 DB를 안 바꿔서 F5 재전송도 무해
+- redirect + 메시지 유지가 필요하면 `addFlashAttribute` (다음 요청 한 번만 유지, 3-3에서)
+
+**3. 로그아웃은 `invalidate()` (호텔 방 비유)**
+- 세션 = 호텔 방, JSESSIONID = 카드키, `loginUser` = 방 안 신분증
+- `removeAttribute` = 신분증만 치움: 다른 값 남음(공용 PC 다음 사용자) / 값 늘 때마다 지울 목록 관리 / **같은 세션 ID 계속 유효**(탈취 시 위험)
+- `invalidate()` = 체크아웃: 전부 비우고 ID 무효 → 다음 요청에 새 ID. 로그아웃 의도에 맞고 빠뜨릴 위험 없음
+- `removeAttribute`는 로그인 유지 중 임시 값 하나 치울 때
+
+### 🙋 내 답변과 피드백
+
+| 질문 | 내 답 | 피드백 |
+|---|---|---|
+| Q1. 무상태 HTTP에서 로그인한 사람을 어떻게 아나? | JSESSIONID 쿠키 값을 보낸다 | ✅ 정답. 보충: 세션 저장소는 Tomcat 메모리, 쿠키는 그 번호(열쇠) |
+| Q2. `Member`를 그대로 세션에 넣으면 문제 필드는? | 모르겠어요 | → `password`. 세션은 로그인 내내 남고 `toString()`·`${loginUser}`로 노출 → 넣기 전에 비운다 |
+| `MemberServiceImpl.login` 1차 | `mem == null \|\| !password.equals(...)` → `throw new IllegalArgumentException()`, `setPassword("")`, `log.info` | 👍 guard clause, 두 실패를 한 길로(계정 존재 여부 노출 방지), `\|\|` 순서(short-circuit로 NPE 방지), `equals`, 비밀번호 로그 없음. ❌ 예외 메시지 없음 → Controller `e.getMessage()`가 null, 폼에 메시지 안 뜸 → 통합 메시지 하나 / 🟡 `""` 대신 `null`(값 없음, 테스트도 null 검증) / 💅 `mem.getPassword().equals(password)`(DB NOT NULL 쪽 기준), 로그에 `mno=` 이름 |
+| `MemberServiceImpl.login` 2차 | 통합 메시지 `"이메일 또는 비밀번호가 틀렸습니다."`, `setPassword(null)`, `mem.getPassword().equals(password)` | ✅ **통과**. 3가지 모두 반영 (계정 열거 방지 포함) |
+| `MemberServiceTest` 로그인 1차 | `@BeforeEach`로 `setMem`(new@) 가입, `login_success`, 실패 2개는 try-catch + 로그 | 실행: 5개 중 **`signUp_duplicateEmail` 실패** (kim@matzip.com이 DB에 없는 듯 → 예외 안 남). 👍 `@BeforeEach` 직접 도입, `signUp_success` 이메일 분리, password null 검증. ❌ 실패 테스트 try-catch = 예외 삼킴 → **항상 초록**(M2 1차와 같은 실수) → `assertThrows` + 메시지(두 메시지 같은지) / ❌ duplicate 테스트가 DB 데이터에 의존 → `setMem` 이메일로 재가입 / 🟡 `assertNotNull` 먼저, `assertEquals(기대, 실제)` 순서 / 💅 `setMem.getEmail()` 재사용 |
+| `MemberServiceTest` 로그인 2차 | (튜터에게 수정 요청) | → 튜터 작성(주석 포함): `setMno` 필드, `setUp` assert 제거, duplicate는 `setMem.getEmail()`로 재가입, `login_success` assert 순서(`assertNotNull` 먼저, 기대·실제), 실패 2개 `assertThrows` + 상수 `LOGIN_FAIL_MESSAGE`로 같은 메시지 검증 → **초록 5개** |
+| `MemberController` 로그인·로그아웃 1차 | 회원가입 URL `/member/signup`으로 통합(+index 링크), `GET/POST /member/login`, `@RequestParam` 2개 + `HttpSession`, 실패 시 error + 뷰, 성공 시 `loginUser` + `redirect:/`, **`POST /member/logout`** + `invalidate()` | ✅ **통과**. 👍 URL 규칙 통일, `login` 파라미터 모양에 맞춘 `@RequestParam`, 성공 시에만 세션 저장, 로그아웃을 POST로(정석 선택). ⚠️ JSP에서 로그아웃은 링크가 아니라 POST 폼 (링크면 405). 💅 logout의 미사용 `Model`. 🤔 2개 미답: 실패 시 redirect 안 하는 이유 / `invalidate` vs `removeAttribute` |
+| JSP 1차 (`login.jsp`, `index.jsp`) | `login.jsp`: signup 복사, name=email/password, `type=password`, error `<c:if>` / `index.jsp`: `<c:choose>` + `${empty loginUser}`, `${loginUser.name}`, 로그아웃 POST 폼 | `index.jsp` ✅ 통과 (💅 href 없는 `<a>` → `<span>`, 들여쓰기). ❌ `login.jsp`에 **taglib 선언 누락** → `<c:if>`·`<c:set>`이 글자로 출력(에러 없음): `<p>` 항상 렌더, `${root}` 빈 값인데 우연히 동작 (M2 ❓와 같은 상황, 페이지 소스 보기로 확인) / 💅 17행 주석 "Member의 필드" → `@RequestParam` 이름 |
+| JSP 2차 + 브라우저 확인 | taglib 추가, 확인 4가지 모두 통과 | ✅ **3-1 완료** |
+| 🤔 실패 시 redirect 안 하는 이유 / `invalidate` vs `removeAttribute` | 모르겠어, 쉽고 자세히 | → 개념 2·3 (Model 수명 그림, 호텔 방 비유) |
+
+### 🛠️ 트러블슈팅
+
+**`signUp_duplicateEmail` 실패 — `Expected IllegalArgumentException to be thrown, but nothing was thrown` (2026-11-17)**
+- 원인(추정): 테스트가 DB에 `kim@matzip.com`이 있다고 가정 → 지금 DB에 없어서 중복 예외가 안 남 (Workbench `SELECT email FROM member;`로 확인)
+- 해결 방향: DB 데이터에 기대지 말고 `@BeforeEach`의 `setMem` 이메일로 재가입해 중복 상황을 테스트 안에서 만든다
+
+### ❓ 내가 한 질문
+
+- `@ModelAttribute`의 역할은? → ① **바인딩**: 기본 생성자로 객체 생성 → 파라미터 이름과 같은 setter 호출 (이름 안 맞으면 조용히 null, 타입 안 맞으면 400) ② **Model에 자동 추가**: 클래스 이름 첫 글자 소문자(`member`) → 실패 후 폼에서 `${member.email}`로 입력값 유지. `@RequestParam`은 값 하나·없으면 400·Model 추가 X. 객체 파라미터는 생략해도 같은 동작. (메서드에 붙이면 공통 Model 값, 참고만)
+
+- 회원가입 URL을 `GET /signUp-form` + `POST /signup`으로 나누는 게 좋나, `/signup`으로 합치는 게 좋나? → **합치기 권장**: ① 자원 하나에 URL 하나, 보여 주기/처리는 HTTP 메서드가 구분 (REST) ② 실패 시 뷰를 바로 반환하면 주소창에 POST URL이 남음 → 합쳐 두면 늘 같은 주소, 다시 열면 GET 폼 ③ 로그인과 같은 규칙 ④ URL은 소문자 + kebab-case (`signUp` 대문자 섞임 → 오타 404). 고칠 곳: `MemberController.java:24`, `index.jsp:13` (`signup.jsp` action은 이미 `/member/signup`)
+
+- 없는 이메일과 틀린 비밀번호의 예외를 분리해야 하나? → **화면 메시지는 하나로** (나누면 계정 열거 공격: 가입된 이메일을 골라낼 수 있음). 원인 구분은 **서버 로그**(`warn`, 이메일만, 비밀번호는 절대 X)에서. 구조: `if` 둘로 나눠 로그만 다르게 + 같은 메시지로 `throw` (지금처럼 한 줄도 OK). 회원가입의 "이미 가입된 이메일"도 노출이지만 실서비스는 시도 횟수 제한·이메일 인증으로 보완
+
+### ⏭️ 남은 일
+
+- [x] 3-1 로그인·로그아웃 (세션에 `loginUser`) ✅ (2026-11-17)
+  - [x] 개념 질문 2개 ✅
+  - [x] ① `MemberService.login(String email, String password)` → `Member` ✅ (2차 리뷰 통과) (요구사항 제시: guard clause + 같은 메시지?, `equals`, 반환 전 password 비우기, info 로그)
+  - [x] `MemberServiceTest` ✅ (튜터 작성, 초록 5개): 성공(mno 같음·password null) / 없는 이메일 / 틀린 비밀번호 (`assertThrows`)
+  - [x] ② `MemberController` ✅ (1차 통과, 로그아웃은 POST)
+  - [x] ③ `member/login.jsp` + `index.jsp` 로그인 상태 표시 ✅ (요구사항 제시: signup.jsp 복사, input name = @RequestParam, `<c:choose>` + `${empty loginUser}`, 로그아웃은 POST 폼, 브라우저 확인 4가지)
+- [ ] 3-2 리뷰 목록(검색 포함)·상세·작성·수정·삭제 Controller ← 다음 할 일
+- [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
+- [ ] 등록·수정·삭제 후 PRG + `addFlashAttribute`
+- [ ] 작성자 본인 검사를 Service에 → 커스텀 예외
+- [ ] 로그인 검사를 각 Controller 메서드에 직접 (M4 AOP 동기)
+- [ ] (M2에서 미룸) `ReviewDaoTest` selectDetail·update·delete, `@MybatisTest` + `@Mapper` 실험, 괄호 빨간불 실험
+- [ ] 셀프 체크: redirect 이유 / redirect 후 Model 값이 사라지는 이유 / 권한 검사를 Service에 두는 이유
+
+### 📌 다음 세션 시작점
+
+M3 3-2 리뷰 Controller부터 (3-1 로그인·로그아웃 완료). 순서: `ReviewService` → 목록(검색) → 상세(`@PathVariable`) → 작성 → 수정 → 삭제. M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete도 이때

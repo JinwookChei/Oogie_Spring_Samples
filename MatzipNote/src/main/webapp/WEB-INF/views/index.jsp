@@ -10,6 +10,21 @@
 </head>
 <body>
 	<h1>맛집 노트!</h1>
-	<a href="${root}/member/signUp-form">회원가입</a>
+	
+	 <c:choose>
+	 	<c:when test="${empty loginUser}">
+	 		<a href="${root}/member/signup">회원가입</a>
+			<a href="${root}/member/login">로그인</a>
+	 	</c:when>
+	 	
+	 	<c:otherwise>
+	 		<a>${loginUser.name}님 환영합니다^^</a>
+	 		<form action="${root}/member/logout" method="post">
+	 			<button>로그아웃</button>
+	 		</form>
+	 	</c:otherwise>
+	 </c:choose>
+	 
+	
 </body>
 </html>

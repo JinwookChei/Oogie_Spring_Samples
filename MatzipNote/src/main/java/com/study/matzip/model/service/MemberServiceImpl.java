@@ -38,4 +38,15 @@ public class MemberServiceImpl implements MemberService {
 		log.info("회원 가입 완료: mno={}, email={}", member.getMno(), member.getEmail());
 		return member.getMno();
 	}
+	
+	@Override
+	public Member login(String email, String password) {
+		Member mem = memberDao.selectByEmail(email);
+		if(mem == null || !mem.getPassword().equals(password)) {
+			throw new IllegalArgumentException("이메일 또는 비밀번호가 틀렸습니다.");
+		}
+		mem.setPassword(null);
+		log.info("로그인 성공 {}", mem.getMno());
+		return mem;
+	}
 }

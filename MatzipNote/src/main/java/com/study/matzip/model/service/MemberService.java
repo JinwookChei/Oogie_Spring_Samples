@@ -5,4 +5,6 @@ import com.study.matzip.model.dto.Member;
 public interface MemberService {
 	
 	public int signUp(Member mem);
+	
+	public Member login(String email, String password);
 }
