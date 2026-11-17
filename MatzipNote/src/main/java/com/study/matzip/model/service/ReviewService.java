@@ -8,4 +8,6 @@ import com.study.matzip.model.dto.ReviewSearch;
 public interface ReviewService {
 	
 	public List<Review> searchReview(ReviewSearch reviewSearch);
+	
+	public Review selectDetail(int rno);
 }

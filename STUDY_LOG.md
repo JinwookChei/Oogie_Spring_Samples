@@ -478,6 +478,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - M3 시작 (2026-11-17)
 - **3-1 로그인·로그아웃 완료** ✅ (2026-11-17): `MemberService.login`(통합 실패 메시지, password null) + `MemberServiceTest` 5개(튜터 작성) + `MemberController`(`/member/signup`·`/member/login` GET/POST 통합, `POST /member/logout` + `invalidate()`) + `login.jsp` + `index.jsp`(`<c:choose>`, 로그아웃 POST 폼) → 브라우저 확인 4가지 통과
 - **3-2-① 리뷰 목록(검색) 완료** ✅ (2026-11-17): `ReviewService`/`ReviewServiceImpl`(search 위임) + `ReviewController` `GET /review/list`(`@ModelAttribute ReviewSearch`, `addAttribute("reviewList")`) + `review/list.jsp`(GET 검색 폼, `<c:choose>` 0건, `<c:forEach>` + `varStatus`) + index 링크 → 2차 통과, 브라우저 확인 5가지 통과 (조건 없음·키워드만·별점만·둘 다·빈 별점)
+- **3-2-② 리뷰 상세 완료** ✅ (2026-11-17): Service `selectDetail`(DAO `selectDetail` JOIN 재사용, null → `IllegalArgumentException`) + `GET /review/{rno}`(`@PathVariable int rno`, `IllegalArgumentException`만 catch → `error`) + `review/detail.jsp`(`<c:choose>`, `${review.writer.name}`) + 목록 제목 링크(`item.rno`) → 3차 통과, 브라우저 4가지 통과 (클릭·없는 번호·`abc` 400·`/list` 우선)
 
 ### 📚 배운 개념
 
@@ -498,6 +499,12 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - `invalidate()` = 체크아웃: 전부 비우고 ID 무효 → 다음 요청에 새 ID. 로그아웃 의도에 맞고 빠뜨릴 위험 없음
 - `removeAttribute`는 로그인 유지 중 임시 값 하나 치울 때
 
+**4. 경로 변수 `/review/3` (`@PathVariable`)**
+- 주소 = `/review` + `/3`. 리뷰마다 주소가 따로 있는 게 아니라 **틀 하나**(`/review/{rno}`)로 받는다. `{rno}` = "이 자리는 아무 값, 이름은 rno"
+- 받기: 메서드 파라미터에 `@PathVariable` + 중괄호 이름과 같은 변수 이름 → 주소의 `"3"`(글자)을 `int 3`으로 바꿔 줌
+- `@RequestParam`과 비교: `?rno=3`의 이름표 붙은 값 vs 경로 **자리**의 값. 둘 다 이름 맞추기 + 자동 형 변환
+- 만드는 쪽(JSP 링크): `${root}/review/${item.rno}` 처럼 번호를 경로에 이어 붙임
+
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
@@ -515,6 +522,11 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 | 3-2-① 목록 1차 (`ReviewService`·`ReviewController`·`list.jsp`·index 링크) | Service 1메서드 위임, `GET /review/list` + `@ModelAttribute ReviewSearch`, `model.addAllAttributes(reviewList)`, `return "/review/list"`, JSP 검색폼(`required`) + `<c:choose>`/`<c:forEach>` | 👍 Service 계층 구조·생성자 주입, `@ModelAttribute`로 검색 DTO 바인딩, taglib·`${root}` 선언, 0건 처리, `varStatus`. ❌ **`addAllAttributes(리스트)`** = 원소마다 자동 이름(`review`)으로 넣음 → `reviewList`라는 이름은 Model에 없음 → `addAttribute("이름", 값)` / ❌ JSP 이름 3곳 불일치(`resultList`·`reviewList`·Controller) → 항상 "결과 없음" / ❌ `required` → 조건 없는 검색·한쪽만 검색 불가(선택 조건이라는 요구사항과 충돌) / 🟡 form `action`에 `${root}` 빠짐 / 🟡 `return "review/list"`(앞 `/` 빼는 관례) / 💅 "(아이디)" 복붙 주석, 별점 `min`/`max`, 검색값 유지(`${reviewSearch.keyword}`) / Q1 미답 |
 | 3-2-① 목록 2차 | `addAttribute("reviewList", …)`, JSP 이름 통일, `required` 제거, `${root}` 추가, `"review/list"` | ✅ ❌3개·🟡2개 모두 반영 → 코드 통과. 💅(주석 "(아이디)", `min`/`max`, 검색값 유지)는 선택으로 남김 / Q1·브라우저 확인 5가지 대기 |
 | 3-2 Q1. 상세는 왜 `/review/3`(경로), 검색은 왜 `?keyword=…`(쿼리 스트링)? | 모르겠어 | → **경로 = "어떤 것"(자원을 가리킴, 필수, 하나)**: 3번 리뷰라는 주소. **쿼리 스트링 = "어떻게 볼지"(걸러 보기·정렬·페이지, 선택, 여러 개 조합)**: 빼도 같은 목록 페이지. 검색 조건을 경로에 넣으면 빠질 때 `/review/list//4`처럼 깨지고 순서도 고정됨. 받는 쪽: 경로 → `@PathVariable`, 쿼리 → `@RequestParam`/`@ModelAttribute` |
+| 3-2-② Q. 상세에는 `selectByRno` / `selectDetail` 중 무엇? | `selectDetail`, 작성자 이름이 필요해서 | ✅ 정답. `selectByRno`는 `review` 테이블만 → `writer`가 null. `selectDetail`은 JOIN + `<association>`으로 `writer`(Member)까지 채움 → `${review.writer.name}` |
+| 3-2-② 상세 1차 (`detail.jsp` + 함께 본 Service·Controller·list 링크) | Service `selectDetail` 위임, `@GetMapping("/{rno}")` + `@PathVariable int rno`, `addAttribute("review")`, list 제목 `<a href="${root}/review/${item.rno}">`, detail.jsp 표에 `${title}`·`${writer.name}` 등 | 👍 경로 변수 매핑·이름 일치, 링크에 `status.count` 아닌 `rno`, taglib·`root`·목록 링크. ❌ JSP가 `${title}`처럼 **바로 필드 이름** → Model엔 `review` 하나뿐 → 모두 빈칸 (`list.jsp`의 `${item.title}`처럼 `review.`부터) / ❌ "점"이 본문(26행)에 붙고 별점엔 없음 / ❌ 없는 번호 흐름 3곳 모두 빠짐: Service null 검사·throw, Controller try-catch + `error`, JSP `<c:choose>` → 지금 `/review/9999`는 빈 표 / 💅 Service 메서드 이름 `selectDetail`은 DAO(SQL) 말투 → `getReview` 등 "하는 일" 이름, `<title>` 한글로 |
+| 3-2-② 상세 2차 | Service null → `IllegalArgumentException("찾을 수 없는 리뷰 입니다.")`, Controller try-catch + `error`, JSP `${review.title}`… + `<c:if>` 에러 | 👍 Service guard clause·메시지, Controller 실패 시 error + 같은 뷰(로그인과 같은 흐름), `${review.writer.name}` 두 단계 점. ❌ "점"이 아직 본문(31행)에 붙어 있음 / 🟡 `<c:if>`가 `<table>` 안(`<thead>` 앞) → HTML상 표 안에 `<p>` 불가(브라우저가 표 밖으로 끌어내 우연히 보임) + 에러 때도 빈 표가 같이 나옴 → `<c:choose>`로 표를 otherwise에 / 🟡 `catch (Exception e)` → 너무 넓음: DB 오류 같은 진짜 버그도 "안내 메시지"로 삼켜짐 → Service가 던지는 `IllegalArgumentException`만 (MemberController처럼) + catch에 로그 / 💅 Service 26행 앞 공백+탭 섞임, 이름 `selectDetail`·`<title>` 그대로(선택) |
+| 3-2-② 상세 3차 | "점" → 별점, `<c:choose>`(error / 표), `catch (IllegalArgumentException e)`, 포맷 정리 | ✅ **코드 통과**. 💅 catch 안 로그는 아직 없음(선택) / 브라우저 확인 4가지 결과 대기 |
+| 3-2-② 브라우저 확인 | `/review/9999` → "찾을 수 없는 리뷰 입니다" / `/review/abc` → Whitelabel Error Page / `/review/list` → 목록 그대로 (이유는 미답) | ✅ 3개 기대대로. → `abc`: `int`로 못 바꿈 → **메서드 실행 전에** Spring이 400(타입 불일치) → 우리 try-catch까지 못 옴, Whitelabel = Boot 기본 에러 페이지(나중에 `@ExceptionHandler`로 바꿀 수 있음) / `list`: Spring은 **글자가 고정된 경로(`/list`)를 변수 경로(`/{rno}`)보다 먼저** 고름(더 구체적인 것 우선) → 앞으로 `/review/write`도 안전. 제목 클릭(1번)도 정상 → **3-2-② 완료** |
 
 ### 🛠️ 트러블슈팅
 
@@ -530,6 +542,10 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 - 없는 이메일과 틀린 비밀번호의 예외를 분리해야 하나? → **화면 메시지는 하나로** (나누면 계정 열거 공격: 가입된 이메일을 골라낼 수 있음). 원인 구분은 **서버 로그**(`warn`, 이메일만, 비밀번호는 절대 X)에서. 구조: `if` 둘로 나눠 로그만 다르게 + 같은 메시지로 `throw` (지금처럼 한 줄도 OK). 회원가입의 "이미 가입된 이메일"도 노출이지만 실서비스는 시도 횟수 제한·이메일 인증으로 보완
 
+- 상세 링크에 `${status.count}`(목록의 줄 번호)를 써야 하나? → **아니다, `${item.rno}`(DB의 리뷰 번호)**. `status.count`는 이번 화면에서 몇 번째 줄인지(1, 2, 3…)일 뿐 → 검색 조건·삭제·정렬에 따라 같은 리뷰도 줄 번호가 바뀜. `rno`는 그 리뷰의 고유 번호(PK), 어디서 봐도 같음 → `selectDetail(rno)`의 `WHERE r.rno = #{rno}`와 짝. 비유: 줄 번호 = 대기표 순서, rno = 주민번호
+
+- `resultMap`을 쓴 mapper 메서드의 반환 타입은? → **`resultMap`의 `type`(= `Review`)**. `resultMap`은 "어떻게 채울지" 설명서일 뿐이고 결과 객체는 `Review` 그대로(`writer`가 채워진 Review). 한 건이면 `Review`, 여러 건이면 `List<Review>` (`resultType`일 때와 같은 규칙). `ReviewDao.selectDetail(int rno)`는 이미 `Review` → Service 상세 메서드도 `Review` 반환
+
 ### ⏭️ 남은 일
 
 - [x] 3-1 로그인·로그아웃 (세션에 `loginUser`) ✅ (2026-11-17)
@@ -541,8 +557,8 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - [ ] 3-2 리뷰 목록(검색 포함)·상세·작성·수정·삭제 Controller ← 진행 중 (화면 하나씩 관통)
   - [x] 개념 Q1: 상세는 `/review/3`(`@PathVariable`), 검색은 쿼리 스트링인 이유? ✅ (모르겠어 → 설명: 경로 = 어떤 것, 쿼리 = 어떻게 볼지)
   - [x] ① `ReviewService`(search) + `ReviewController` `GET /review/list`(`@ModelAttribute ReviewSearch`) + `review/list.jsp`(GET 검색 폼 + `<c:forEach>` + 0건 표시) + index 링크 → 브라우저 4가지 (빈 minRating `""` → Integer?) ✅ (2차 통과, 브라우저 5가지 통과)
-  - [ ] ② 상세 `GET /review/{rno}` ← 다음 할 일 (Service `getDetail` → `selectDetail` 재사용, 없는 번호 처리, `@PathVariable int rno`, `review/detail.jsp`에 `${review.writer.name}`, 목록 제목 → 상세 링크)
-  - [ ] ③ 작성 `GET·POST /review/write` (작성자 = loginUser)
+  - [x] ② 상세 `GET /review/{rno}` ✅ (3차 통과, 브라우저 4가지) (Service `getDetail` → `selectDetail` 재사용, 없는 번호 처리, `@PathVariable int rno`, `review/detail.jsp`에 `${review.writer.name}`, 목록 제목 → 상세 링크)
+  - [ ] ③ 작성 `GET·POST /review/write` (작성자 = loginUser) ← 다음 할 일 (개념 Q: 작성자 mno를 폼에서 받으면 안 되는 이유)
   - [ ] ④ 수정·삭제 → 3-3 작성자 검사와 함께
 - [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
 - [ ] 등록·수정·삭제 후 PRG + `addFlashAttribute`
@@ -553,4 +569,4 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### 📌 다음 세션 시작점
 
-M3 3-2-② 리뷰 상세(`GET /review/{rno}`, `@PathVariable`) 요구사항부터 (3-2-① 목록 완료·커밋). 순서: `ReviewService` → 목록(검색) → 상세(`@PathVariable`) → 작성 → 수정 → 삭제. M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete도 이때
+M3 3-2-③ 리뷰 작성(`GET·POST /review/write`, 작성자 = 세션 `loginUser`) 개념 Q 답부터 (3-2-② 상세 완료·커밋됨, a428610 이후 커밋 3개 push 안 함). 순서: `ReviewService` → 목록(검색) → 상세(`@PathVariable`) → 작성 → 수정 → 삭제. M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete도 이때

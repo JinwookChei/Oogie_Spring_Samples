@@ -48,7 +48,7 @@
 						<tr>
 							<%-- 번호 (status.count는 1부터 시작) --%>
 							<td>${status.count}</td>
-							<td>${item.title}</td>
+							<td><a href="${root}/review/${item.rno}">${item.title}</a></td>
 							<td>${item.rating}점</td>
 							<td>${item.createdAt}</td>
 						</tr>

@@ -14,12 +14,22 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class ReviewServiceImpl implements ReviewService{
-	
+public class ReviewServiceImpl implements ReviewService {
+
 	private final ReviewDao reviewDao;
-	
+
 	@Override
-	public List<Review> searchReview(ReviewSearch reviewSearch){
+	public List<Review> searchReview(ReviewSearch reviewSearch) {
 		return reviewDao.search(reviewSearch);
+	}
+
+	@Override
+	public Review selectDetail(int rno) {
+		Review review = reviewDao.selectDetail(rno);
+		if (review == null) {
+			throw new IllegalArgumentException("찾을 수 없는 리뷰 입니다.");
+		}
+
+		return review;
 	}
 }
