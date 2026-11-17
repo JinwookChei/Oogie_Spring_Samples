@@ -477,6 +477,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 - M3 시작 (2026-11-17)
 - **3-1 로그인·로그아웃 완료** ✅ (2026-11-17): `MemberService.login`(통합 실패 메시지, password null) + `MemberServiceTest` 5개(튜터 작성) + `MemberController`(`/member/signup`·`/member/login` GET/POST 통합, `POST /member/logout` + `invalidate()`) + `login.jsp` + `index.jsp`(`<c:choose>`, 로그아웃 POST 폼) → 브라우저 확인 4가지 통과
+- **3-2-① 리뷰 목록(검색) 완료** ✅ (2026-11-17): `ReviewService`/`ReviewServiceImpl`(search 위임) + `ReviewController` `GET /review/list`(`@ModelAttribute ReviewSearch`, `addAttribute("reviewList")`) + `review/list.jsp`(GET 검색 폼, `<c:choose>` 0건, `<c:forEach>` + `varStatus`) + index 링크 → 2차 통과, 브라우저 확인 5가지 통과 (조건 없음·키워드만·별점만·둘 다·빈 별점)
 
 ### 📚 배운 개념
 
@@ -511,6 +512,9 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 | JSP 1차 (`login.jsp`, `index.jsp`) | `login.jsp`: signup 복사, name=email/password, `type=password`, error `<c:if>` / `index.jsp`: `<c:choose>` + `${empty loginUser}`, `${loginUser.name}`, 로그아웃 POST 폼 | `index.jsp` ✅ 통과 (💅 href 없는 `<a>` → `<span>`, 들여쓰기). ❌ `login.jsp`에 **taglib 선언 누락** → `<c:if>`·`<c:set>`이 글자로 출력(에러 없음): `<p>` 항상 렌더, `${root}` 빈 값인데 우연히 동작 (M2 ❓와 같은 상황, 페이지 소스 보기로 확인) / 💅 17행 주석 "Member의 필드" → `@RequestParam` 이름 |
 | JSP 2차 + 브라우저 확인 | taglib 추가, 확인 4가지 모두 통과 | ✅ **3-1 완료** |
 | 🤔 실패 시 redirect 안 하는 이유 / `invalidate` vs `removeAttribute` | 모르겠어, 쉽고 자세히 | → 개념 2·3 (Model 수명 그림, 호텔 방 비유) |
+| 3-2-① 목록 1차 (`ReviewService`·`ReviewController`·`list.jsp`·index 링크) | Service 1메서드 위임, `GET /review/list` + `@ModelAttribute ReviewSearch`, `model.addAllAttributes(reviewList)`, `return "/review/list"`, JSP 검색폼(`required`) + `<c:choose>`/`<c:forEach>` | 👍 Service 계층 구조·생성자 주입, `@ModelAttribute`로 검색 DTO 바인딩, taglib·`${root}` 선언, 0건 처리, `varStatus`. ❌ **`addAllAttributes(리스트)`** = 원소마다 자동 이름(`review`)으로 넣음 → `reviewList`라는 이름은 Model에 없음 → `addAttribute("이름", 값)` / ❌ JSP 이름 3곳 불일치(`resultList`·`reviewList`·Controller) → 항상 "결과 없음" / ❌ `required` → 조건 없는 검색·한쪽만 검색 불가(선택 조건이라는 요구사항과 충돌) / 🟡 form `action`에 `${root}` 빠짐 / 🟡 `return "review/list"`(앞 `/` 빼는 관례) / 💅 "(아이디)" 복붙 주석, 별점 `min`/`max`, 검색값 유지(`${reviewSearch.keyword}`) / Q1 미답 |
+| 3-2-① 목록 2차 | `addAttribute("reviewList", …)`, JSP 이름 통일, `required` 제거, `${root}` 추가, `"review/list"` | ✅ ❌3개·🟡2개 모두 반영 → 코드 통과. 💅(주석 "(아이디)", `min`/`max`, 검색값 유지)는 선택으로 남김 / Q1·브라우저 확인 5가지 대기 |
+| 3-2 Q1. 상세는 왜 `/review/3`(경로), 검색은 왜 `?keyword=…`(쿼리 스트링)? | 모르겠어 | → **경로 = "어떤 것"(자원을 가리킴, 필수, 하나)**: 3번 리뷰라는 주소. **쿼리 스트링 = "어떻게 볼지"(걸러 보기·정렬·페이지, 선택, 여러 개 조합)**: 빼도 같은 목록 페이지. 검색 조건을 경로에 넣으면 빠질 때 `/review/list//4`처럼 깨지고 순서도 고정됨. 받는 쪽: 경로 → `@PathVariable`, 쿼리 → `@RequestParam`/`@ModelAttribute` |
 
 ### 🛠️ 트러블슈팅
 
@@ -534,7 +538,12 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - [x] `MemberServiceTest` ✅ (튜터 작성, 초록 5개): 성공(mno 같음·password null) / 없는 이메일 / 틀린 비밀번호 (`assertThrows`)
   - [x] ② `MemberController` ✅ (1차 통과, 로그아웃은 POST)
   - [x] ③ `member/login.jsp` + `index.jsp` 로그인 상태 표시 ✅ (요구사항 제시: signup.jsp 복사, input name = @RequestParam, `<c:choose>` + `${empty loginUser}`, 로그아웃은 POST 폼, 브라우저 확인 4가지)
-- [ ] 3-2 리뷰 목록(검색 포함)·상세·작성·수정·삭제 Controller ← 다음 할 일
+- [ ] 3-2 리뷰 목록(검색 포함)·상세·작성·수정·삭제 Controller ← 진행 중 (화면 하나씩 관통)
+  - [x] 개념 Q1: 상세는 `/review/3`(`@PathVariable`), 검색은 쿼리 스트링인 이유? ✅ (모르겠어 → 설명: 경로 = 어떤 것, 쿼리 = 어떻게 볼지)
+  - [x] ① `ReviewService`(search) + `ReviewController` `GET /review/list`(`@ModelAttribute ReviewSearch`) + `review/list.jsp`(GET 검색 폼 + `<c:forEach>` + 0건 표시) + index 링크 → 브라우저 4가지 (빈 minRating `""` → Integer?) ✅ (2차 통과, 브라우저 5가지 통과)
+  - [ ] ② 상세 `GET /review/{rno}` ← 다음 할 일 (Service `getDetail` → `selectDetail` 재사용, 없는 번호 처리, `@PathVariable int rno`, `review/detail.jsp`에 `${review.writer.name}`, 목록 제목 → 상세 링크)
+  - [ ] ③ 작성 `GET·POST /review/write` (작성자 = loginUser)
+  - [ ] ④ 수정·삭제 → 3-3 작성자 검사와 함께
 - [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
 - [ ] 등록·수정·삭제 후 PRG + `addFlashAttribute`
 - [ ] 작성자 본인 검사를 Service에 → 커스텀 예외
@@ -544,4 +553,4 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### 📌 다음 세션 시작점
 
-M3 3-2 리뷰 Controller부터 (3-1 로그인·로그아웃 완료). 순서: `ReviewService` → 목록(검색) → 상세(`@PathVariable`) → 작성 → 수정 → 삭제. M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete도 이때
+M3 3-2-② 리뷰 상세(`GET /review/{rno}`, `@PathVariable`) 요구사항부터 (3-2-① 목록 완료·커밋). 순서: `ReviewService` → 목록(검색) → 상세(`@PathVariable`) → 작성 → 수정 → 삭제. M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete도 이때

@@ -19,12 +19,13 @@
 	 	
 	 	<c:otherwise>
 	 		<a>${loginUser.name}님 환영합니다^^</a>
+	 		<br>
+	 		<a href="${root}/review/list">리뷰 목록</a>
 	 		<form action="${root}/member/logout" method="post">
 	 			<button>로그아웃</button>
 	 		</form>
 	 	</c:otherwise>
 	 </c:choose>
-	 
 	
 </body>
 </html>
