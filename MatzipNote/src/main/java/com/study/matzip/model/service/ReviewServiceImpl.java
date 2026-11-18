@@ -29,7 +29,12 @@ public class ReviewServiceImpl implements ReviewService {
 		if (review == null) {
 			throw new IllegalArgumentException("찾을 수 없는 리뷰 입니다.");
 		}
-
 		return review;
+	}
+	
+	@Override
+	public int writeReview(Review review) {
+		reviewDao.insert(review);
+		return review.getRno();
 	}
 }

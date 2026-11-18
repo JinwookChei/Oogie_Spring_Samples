@@ -10,4 +10,6 @@ public interface ReviewService {
 	public List<Review> searchReview(ReviewSearch reviewSearch);
 	
 	public Review selectDetail(int rno);
+	
+	public int writeReview(Review review);
 }

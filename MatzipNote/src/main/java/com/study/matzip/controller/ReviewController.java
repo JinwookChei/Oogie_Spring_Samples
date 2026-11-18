@@ -7,12 +7,16 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.study.matzip.model.dto.Member;
 import com.study.matzip.model.dto.Review;
 import com.study.matzip.model.dto.ReviewSearch;
 import com.study.matzip.model.service.ReviewService;
 
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,4 +51,28 @@ public class ReviewController {
 		log.info("selectDetail 실행");
 		return "review/detail";
 	}
+	
+	@GetMapping("/write")
+	String reviewForm(HttpSession session) {
+		Member loginUser = (Member) session.getAttribute("loginUser");
+		if(loginUser == null) {
+			return "redirect:/member/login";
+		}
+		
+		return "review/write";
+	}
+	
+	@PostMapping("/write")
+	String writeReview(Review review, HttpSession session, RedirectAttributes redirectAttr){
+		Member loginUser = (Member) session.getAttribute("loginUser");
+		if(loginUser == null) {
+			return "redirect:/member/login";
+		}
+		
+		review.setMno(loginUser.getMno());
+		int rno = reviewService.writeReview(review);	
+		redirectAttr.addFlashAttribute("msg", "정상적으로 리뷰가 등록 되었습니다.");
+		return "redirect:/review/"+rno;
+	}
+	
 }

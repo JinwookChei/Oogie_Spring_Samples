@@ -15,6 +15,10 @@
 			<p style="color: red">${error}</p>
 		</c:when>
 		<c:otherwise>
+			<c:if test="${not empty msg}">
+				<p style="color: green">${msg}</p>	
+			</c:if>
+			
 			<table border="1">
 				<thead>
 					<tr>

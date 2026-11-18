@@ -27,7 +27,6 @@
 		WHERE rno = #{rno}
 	</delete>
 	
-	
 	<resultMap id="reviewDetailMap" type="Review">
 		<id     column="rno"        property="rno"/>
 		<result column="mno"        property="mno"/>

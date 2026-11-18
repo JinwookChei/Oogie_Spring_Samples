@@ -149,6 +149,13 @@
 - **회귀 테스트**: 고친 버그가 다시 생기면 빨간불이 켜지는 테스트. "괄호가 없을 때만 결과에 섞이는" 함정 데이터를 넣고, 결과에 **없어야 한다**고 검증 (`anyMatch` → `assertFalse`, `allMatch`). 로그만 찍는 테스트는 항상 초록
 - `@BeforeEach`도 `@Transactional` 테스트와 **같은 트랜잭션** → 함께 rollback. 테스트가 기존 DB 데이터에 기대지 않게 필요한 데이터를 직접 만든다
 
+**7. redirect 너머로 값 전달하기 (`RedirectAttributes`) — 샘플 FW_05 `SimpleController` TODO 10-2**
+- Controller 파라미터에 `RedirectAttributes`를 받아 사용
+- `addFlashAttribute("msg", 값)`: 값을 **세션에 잠깐** 맡겨 둠 → redirect된 **다음 요청 한 번**의 Model로 옮겨 줌 → 바로 삭제. 주소창에 안 보임. F5 하면 사라짐 = "한 번만 보여 줄 알림"에 딱 맞음
+- `addAttribute("이름", 값)`(RedirectAttributes의 것): 주소 뒤 **쿼리 스트링**(`?byParam=dirty`)으로 붙음 → 주소창에 노출, 계속 남음
+- 비교: `model.addAttribute` = redirect하면 사라짐 / `session.setAttribute` = 지울 때까지 계속 남음(알림이 계속 뜸) / flash = 딱 한 번
+- JSP에서는 평소처럼 `${msg}` (다음 요청의 Model에 들어와 있으므로)
+
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
@@ -505,6 +512,18 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - `@RequestParam`과 비교: `?rno=3`의 이름표 붙은 값 vs 경로 **자리**의 값. 둘 다 이름 맞추기 + 자동 형 변환
 - 만드는 쪽(JSP 링크): `${root}/review/${item.rno}` 처럼 번호를 경로에 이어 붙임
 
+**5. 작성자는 폼이 아니라 세션에서 (클라이언트를 믿지 않는다)**
+- 폼으로 온 값(hidden 포함)은 **사용자가 마음대로 바꿀 수 있다**: F12로 `value` 수정, Postman·curl로 직접 POST → `mno=1`로 바꾸면 남의 이름으로 리뷰 작성(사칭)
+- hidden은 "화면에 안 보일 뿐" 보안이 아니다. 브라우저에서 온 값 = 전부 사용자가 만든 값
+- 세션 값은 **서버 메모리**에 있어 사용자가 못 바꿈. 사용자가 가진 건 JSESSIONID(열쇠)뿐 → "누가"는 세션 `loginUser`에서, "무엇을 썼는지"(제목·내용·별점)만 폼에서
+- 원칙: 권한·신원과 관련된 값은 서버가 아는 정보로 정한다 (수정·삭제 권한 검사도 같은 이유 → 3-3)
+
+**6. PRG (Post → Redirect → Get)와 F5**
+- F5(새로고침) = 브라우저가 **마지막으로 보낸 요청을 그대로 다시** 보냄
+- POST 처리 후 뷰를 바로 반환 → 마지막 요청 = POST → F5마다 다시 INSERT (중복 글), 브라우저가 "양식 다시 제출?" 경고
+- POST 처리 후 redirect → 브라우저가 GET으로 새 요청 → 마지막 요청 = GET(조회) → F5 해도 다시 보기만 함
+- 그래서 **DB를 바꾸는 요청(작성·수정·삭제) 성공 후엔 redirect**. 실패(입력 오류)는 DB를 안 바꿨으니 뷰를 바로 반환해 Model로 에러 표시 (개념 2)
+
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
@@ -527,6 +546,15 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 | 3-2-② 상세 2차 | Service null → `IllegalArgumentException("찾을 수 없는 리뷰 입니다.")`, Controller try-catch + `error`, JSP `${review.title}`… + `<c:if>` 에러 | 👍 Service guard clause·메시지, Controller 실패 시 error + 같은 뷰(로그인과 같은 흐름), `${review.writer.name}` 두 단계 점. ❌ "점"이 아직 본문(31행)에 붙어 있음 / 🟡 `<c:if>`가 `<table>` 안(`<thead>` 앞) → HTML상 표 안에 `<p>` 불가(브라우저가 표 밖으로 끌어내 우연히 보임) + 에러 때도 빈 표가 같이 나옴 → `<c:choose>`로 표를 otherwise에 / 🟡 `catch (Exception e)` → 너무 넓음: DB 오류 같은 진짜 버그도 "안내 메시지"로 삼켜짐 → Service가 던지는 `IllegalArgumentException`만 (MemberController처럼) + catch에 로그 / 💅 Service 26행 앞 공백+탭 섞임, 이름 `selectDetail`·`<title>` 그대로(선택) |
 | 3-2-② 상세 3차 | "점" → 별점, `<c:choose>`(error / 표), `catch (IllegalArgumentException e)`, 포맷 정리 | ✅ **코드 통과**. 💅 catch 안 로그는 아직 없음(선택) / 브라우저 확인 4가지 결과 대기 |
 | 3-2-② 브라우저 확인 | `/review/9999` → "찾을 수 없는 리뷰 입니다" / `/review/abc` → Whitelabel Error Page / `/review/list` → 목록 그대로 (이유는 미답) | ✅ 3개 기대대로. → `abc`: `int`로 못 바꿈 → **메서드 실행 전에** Spring이 400(타입 불일치) → 우리 try-catch까지 못 옴, Whitelabel = Boot 기본 에러 페이지(나중에 `@ExceptionHandler`로 바꿀 수 있음) / `list`: Spring은 **글자가 고정된 경로(`/list`)를 변수 경로(`/{rno}`)보다 먼저** 고름(더 구체적인 것 우선) → 앞으로 `/review/write`도 안전. 제목 클릭(1번)도 정상 → **3-2-② 완료** |
+| 3-2-③ Q1. 작성자 `mno`를 폼 hidden으로 받으면 안 되는 이유? | 모르겠어요 | → 폼 값은 F12·Postman으로 **바꿔 보낼 수 있음** → 남의 mno로 사칭 작성. hidden은 숨김일 뿐 보안 X (개념 5) |
+| 3-2-③ Q2. 그럼 mno는 어디서? | 세션에서 꺼내야 할까? | ✅ 정답. 로그인 성공 때 세션에 넣은 `loginUser`(Member)의 `mno`. 세션은 서버 메모리라 사용자가 못 바꿈 |
+| 3-2-③ 작성 1차 (Service·Controller·`write.jsp`·list 링크) | Service `writeReview`: insert 결과 0이면 `IllegalArgumentException`, `return review.getRno()` / Controller GET·POST `/write`, try-catch, `return "redirect:/review/rno"` / JSP hidden `mno`(`${sessionScope.loginUser.mno}`), 입력 4개 `required` | 👍 `getRno()`로 새 번호(직전 질문 반영), GET·POST 같은 URL, taglib·`${root}`·`method="post"`, name = 필드 이름, 목록에 "리뷰 쓰기" 링크. 컴파일 OK. ❌ **hidden `mno`** = Q1에서 막자고 한 방식 그대로 → Controller에서 `HttpSession`의 `loginUser`로 `mno` 채우기 / ❌ `"redirect:/review/rno"` = 글자 "rno" → `/review/rno` → `int` 변환 실패 400 (변수를 문자열에 이어 붙여야) / ❌ 로그인 검사 없음 (GET·POST 둘 다) / 🟡 insert는 성공=1, 실패=DB 예외 → `res == 0`은 사실상 안 옴 + `IllegalArgumentException`은 "입력이 잘못됨" 뜻 → 검사·try-catch 빼고 위임만 / 🟡 `return "/review/write"` 앞 `/` / 🟡 이미지 입력 `required` → 업로드는 나중, 지금은 입력칸 빼기(`image_name` NULL 허용) / 🟡 내용 `<textarea>`, 별점 `min`/`max` 1~5 / 💅 디버그 로그 `CHECK!!!` 지우기 |
+| 3-2-③ 작성 2차 | Controller GET·POST에 `HttpSession` + `loginUser == null` → `redirect:/member/login`, `review.setMno(loginUser.getMno())`, `"redirect:/review/{rno}"` / JSP hidden 삭제 | 👍 ❌1(hidden 삭제 + 세션에서 mno)·❌3(로그인 검사 2곳, guard clause, 형 변환) 해결. ❌ `"redirect:/review/{rno}"`도 여전히 **문자열 안의 글자** → Spring이 `{rno}`를 **Model**에서 찾음(지역 변수는 모름) → Model에 `rno` 없음 → `IllegalArgumentException: Model has no value for key 'rno'` **500** → `+`로 변수 이어 붙이기 / 🟡 4·5·6·7(Service `res == 0`·try-catch, `"/review/write"`, 이미지 입력칸, textarea·min/max) 아직 그대로 |
+| 3-2-③ 작성 3차 | `"redirect:/review/" + rno`, Service 위임만(`insert` → `getRno()`), try-catch 제거, 이미지 칸 삭제, 별점 `min=1 max=5`, 제목·내용 `<input type="textarea">` | ✅ **코드 통과** (❌ 모두 해결, 컴파일 OK). 🟡 `<input type="textarea">`는 없는 type → 브라우저가 그냥 한 줄 text로 처리(에러 없음). 여러 줄은 **`<textarea>` 태그**(닫는 태그 있음, value 속성 대신 태그 사이가 값). 제목은 한 줄이라 `type="text"` 유지 / 💅 미사용 `Model` 파라미터, 속성 값 따옴표(`min="1"`) / 브라우저 확인 4가지 대기 |
+| 3-2-③ 브라우저 4. 작성 직후 F5 → 글이 또 생기나? | 아니오, redirect 했기 때문 | ✅ 정답 (DB 확인: rno 12·13·14 mno=1, 중복 없음). 보충: F5 = **마지막 요청을 다시 보냄**. redirect 후 마지막 요청은 `GET /review/14`(조회) → 몇 번 눌러도 무해. 뷰를 바로 반환했다면 마지막 요청이 `POST /review/write` → F5마다 INSERT(브라우저 "양식 다시 제출" 경고) = **PRG**(Post → Redirect → Get). 참고: rno가 3~11을 건너뛴 건 테스트 롤백에도 AUTO_INCREMENT 번호는 되돌아가지 않기 때문 |
+| 3-2-③-2 Q. redirect 직전 `model.addAttribute("msg")` → 상세에서 `${msg}` 보이나? | 안 보여요. redirect하면 새 요청이라 Model이 사라져서 | ✅ 정답 (개념 2와 연결). → 해결책 `addFlashAttribute` (개념 7) |
+| 3-2-③-2 flash 1차 | `writeReview`에 `RedirectAttributes` 추가·`Model` 제거, redirect 직전 `addFlashAttribute("msg", "정상적으로 리뷰가 등록 되었습니다.")`, `detail.jsp` otherwise 안 표 위에 `<c:if test="${not empty msg}">` | ✅ **코드 통과** (컴파일 OK). 👍 담는 시점(저장 성공 후·redirect 직전), `not empty`, 위치(표 밖·error 아닐 때만), 일반적인 이름 `msg`. 💅 변수 오타 `rediectAttr` → `redirectAttr`(STS `Alt+Shift+R` 이름 바꾸기) / 🟡 `write.jsp` 내용 칸 아직 `<input type="textarea">` (2번째 지적) / 브라우저 확인 3가지 대기 |
+| 3-2-③-2 flash 2차 | `redirectAttr`로 이름 수정, `write.jsp` 제목 `type="text"`·내용 `<textarea>` | ✅ **통과**. 남은 🟡·💅 모두 반영, DB에 rno 15·16 작성 확인 → **3-2-③ 작성 + 완료 메시지 완료** |
 
 ### 🛠️ 트러블슈팅
 
@@ -544,6 +572,8 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 - 상세 링크에 `${status.count}`(목록의 줄 번호)를 써야 하나? → **아니다, `${item.rno}`(DB의 리뷰 번호)**. `status.count`는 이번 화면에서 몇 번째 줄인지(1, 2, 3…)일 뿐 → 검색 조건·삭제·정렬에 따라 같은 리뷰도 줄 번호가 바뀜. `rno`는 그 리뷰의 고유 번호(PK), 어디서 봐도 같음 → `selectDetail(rno)`의 `WHERE r.rno = #{rno}`와 짝. 비유: 줄 번호 = 대기표 순서, rno = 주민번호
 
+- `insert`(`useGeneratedKeys="true" keyProperty="rno"`)의 반환값 `int`에는 무엇이? → **영향받은 행 수**(성공 시 `1`), 새 rno가 **아니다**. 새 rno는 **넘겨준 `Review` 객체의 `rno` 필드**에 MyBatis가 setter로 채움 → insert 호출 뒤 같은 객체에서 `getRno()`. 반환값 int는 update·delete와 같은 규칙(바뀐 행 수: 0이면 대상 없음). 흔한 실수: 반환값을 rno로 써서 늘 `/review/1`로 redirect
+
 - `resultMap`을 쓴 mapper 메서드의 반환 타입은? → **`resultMap`의 `type`(= `Review`)**. `resultMap`은 "어떻게 채울지" 설명서일 뿐이고 결과 객체는 `Review` 그대로(`writer`가 채워진 Review). 한 건이면 `Review`, 여러 건이면 `List<Review>` (`resultType`일 때와 같은 규칙). `ReviewDao.selectDetail(int rno)`는 이미 `Review` → Service 상세 메서드도 `Review` 반환
 
 ### ⏭️ 남은 일
@@ -558,10 +588,11 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - [x] 개념 Q1: 상세는 `/review/3`(`@PathVariable`), 검색은 쿼리 스트링인 이유? ✅ (모르겠어 → 설명: 경로 = 어떤 것, 쿼리 = 어떻게 볼지)
   - [x] ① `ReviewService`(search) + `ReviewController` `GET /review/list`(`@ModelAttribute ReviewSearch`) + `review/list.jsp`(GET 검색 폼 + `<c:forEach>` + 0건 표시) + index 링크 → 브라우저 4가지 (빈 minRating `""` → Integer?) ✅ (2차 통과, 브라우저 5가지 통과)
   - [x] ② 상세 `GET /review/{rno}` ✅ (3차 통과, 브라우저 4가지) (Service `getDetail` → `selectDetail` 재사용, 없는 번호 처리, `@PathVariable int rno`, `review/detail.jsp`에 `${review.writer.name}`, 목록 제목 → 상세 링크)
-  - [ ] ③ 작성 `GET·POST /review/write` (작성자 = loginUser) ← 다음 할 일 (개념 Q: 작성자 mno를 폼에서 받으면 안 되는 이유)
+  - [x] ③ 작성 `GET·POST /review/write` (작성자 = loginUser) ✅ (2026-11-18, 3차 통과, F5 중복 없음 확인, textarea 반영)
+  - [x] ③-2 작성 후 "등록 완료" 메시지 `addFlashAttribute` ✅ (2026-11-18, 2차 통과)
   - [ ] ④ 수정·삭제 → 3-3 작성자 검사와 함께
 - [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
-- [ ] 등록·수정·삭제 후 PRG + `addFlashAttribute`
+- [ ] 등록·수정·삭제 후 PRG + `addFlashAttribute` (등록 ✅, 수정·삭제 남음)
 - [ ] 작성자 본인 검사를 Service에 → 커스텀 예외
 - [ ] 로그인 검사를 각 Controller 메서드에 직접 (M4 AOP 동기)
 - [ ] (M2에서 미룸) `ReviewDaoTest` selectDetail·update·delete, `@MybatisTest` + `@Mapper` 실험, 괄호 빨간불 실험
@@ -569,4 +600,4 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### 📌 다음 세션 시작점
 
-M3 3-2-③ 리뷰 작성(`GET·POST /review/write`, 작성자 = 세션 `loginUser`) 개념 Q 답부터 (3-2-② 상세 완료·커밋됨, a428610 이후 커밋 3개 push 안 함). 순서: `ReviewService` → 목록(검색) → 상세(`@PathVariable`) → 작성 → 수정 → 삭제. M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete도 이때
+M3 3-2-④ **수정·삭제 + 3-3 작성자 본인 검사(Service, 커스텀 예외)** 개념 Q부터. 3-2-③ 작성(`/review/write`, 작성자 = 세션 `loginUser`, PRG, `addFlashAttribute("msg")`) 완료 (2026-11-18). 수정 폼은 `write.jsp` 복사, 메시지 이름 `msg` 재사용. M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete도 이때

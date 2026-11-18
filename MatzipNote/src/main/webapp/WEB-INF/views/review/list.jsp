@@ -1,5 +1,4 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8"
-	pageEncoding="UTF-8"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
 <%@ taglib prefix="c" uri="jakarta.tags.core"%>
 <c:set var="root" value="${pageContext.request.contextPath}" />
 
@@ -59,5 +58,6 @@
 	</c:choose>
 
 	<a href="${root}/">메인으로</a>
+	<a href="${root}/review/write">리뷰 쓰기</a>
 </body>
 </html>
