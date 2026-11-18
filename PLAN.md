@@ -117,9 +117,9 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 교안: Spring MVC pt.1, pt.2 (Part 1·2) · 샘플: FW_05 `SimpleController`
 
 - [x] 로그인·로그아웃 (세션에 `loginUser`) ✅ (2026-11-17)
-- [ ] 리뷰 목록(검색 포함)·상세·작성·수정·삭제 Controller — 목록·상세 ✅, 작성·수정·삭제 남음
+- [ ] 리뷰 목록(검색 포함)·상세·작성·수정·삭제 Controller — 목록·상세·작성 ✅, 수정·삭제 남음
 - [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
-- [ ] 등록·수정·삭제 후 **PRG** + `addFlashAttribute`로 "완료" 메시지
+- [ ] 등록·수정·삭제 후 **PRG** + `addFlashAttribute`로 "완료" 메시지 — 등록 ✅, 수정·삭제 남음
 - [ ] 작성자 본인 검사를 **Service**에 구현 → 위반 시 커스텀 예외
 - [ ] 로그인 검사를 **각 Controller 메서드에 직접** 넣어 보기 (중복이 생기는 걸 일부러 체감 → M4 AOP의 동기)
 
@@ -190,3 +190,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-16 | M2 진행 중 (4차) | 2-2 검색: 동적 SQL 개념(`<where>`/`<if>`, OGNL test, `&lt;` 엔티티), `ReviewSearch` DTO(`Integer minRating`) + `ReviewDao.search` 통과, `review.xml` search 3차까지(XML 파싱 통과). **다음: OR 괄호 수정 → `ReviewDaoTest`(초안 있음) 리뷰** (`STUDY_LOG.md` 📌 참고) |
 | 2026-11-17 | **M2 완료** (일부 미룸) | 검색 괄호 `AND (... OR ...)` + `minRating != null`, `ReviewDaoTest`(튜터 작성: insert·괄호 회귀·조건 없음) 3개 통과, 셀프 퀴즈 답 정리, Notion 업로드. 미룸: join 상세·update·delete 테스트, `@MybatisTest`/`@Mapper` 실험. **다음: M3 로그인·로그아웃** |
 | 2026-11-17 | M3 진행 중 | **3-1 로그인·로그아웃 완료**(세션 `loginUser`, `invalidate()`, `MemberServiceTest` 5개), **3-2-① 목록(검색)·② 상세(`@PathVariable`, 없는 번호 처리) 완료**. **다음: 3-2-③ 리뷰 작성 개념 Q(작성자 mno를 폼에서 받으면 안 되는 이유)부터** (`STUDY_LOG.md` 📌 참고) |
+| 2026-11-18 | M3 진행 중 | **3-2-③ 리뷰 작성 완료**: 작성자 mno는 세션 `loginUser`에서(hidden 사칭 방지), GET·POST 로그인 검사, insert 후 `getRno()`(반환값은 행 수), PRG(F5 중복 없음), `addFlashAttribute("msg")` 완료 메시지. **다음: 3-2-④ 수정·삭제 + 3-3 작성자 본인 검사 개념 Q부터** |
