@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.study.matzip.exception.ForbiddenException;
 import com.study.matzip.model.dto.Member;
 import com.study.matzip.model.dto.Review;
 import com.study.matzip.model.dto.ReviewSearch;
@@ -75,4 +76,25 @@ public class ReviewController {
 		return "redirect:/review/"+rno;
 	}
 	
+	@PostMapping("/{rno}/delete")
+	String deleteReview(@PathVariable int rno, HttpSession session,  RedirectAttributes rediAttr) {
+		Member loginUser = (Member)session.getAttribute("loginUser");
+		if(loginUser == null) {
+			return "redirect:/member/login";
+		}
+		try {
+			reviewService.deleteReview(rno, loginUser.getMno());
+		} 
+		catch (IllegalArgumentException e) {
+			rediAttr.addFlashAttribute("msg", e.getMessage());
+			return "redirect:/review/list";
+		}
+		catch (ForbiddenException e) {
+			rediAttr.addFlashAttribute("msg", e.getMessage());
+			return "redirect:/review/"+rno;
+		}
+		
+		rediAttr.addFlashAttribute("msg", "삭제 완료");
+		return "redirect:/review/list";
+	}
 }

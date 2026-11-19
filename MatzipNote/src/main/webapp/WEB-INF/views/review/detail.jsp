@@ -16,9 +16,9 @@
 		</c:when>
 		<c:otherwise>
 			<c:if test="${not empty msg}">
-				<p style="color: green">${msg}</p>	
+				<p style="color: green">${msg}</p>
 			</c:if>
-			
+
 			<table border="1">
 				<thead>
 					<tr>
@@ -39,8 +39,16 @@
 					</tr>
 				</tbody>
 			</table>
+
+			<c:if test="${review.mno == sessionScope.loginUser.mno}">
+				<form action="${root}/review/${review.rno}/delete" name="delete"
+					method="POST">
+					<button>삭제</button>
+				</form>
+			</c:if>
 		</c:otherwise>
 	</c:choose>
+
 	<a href="${root}/review/list">리뷰 목록</a>
 </body>
 </html>

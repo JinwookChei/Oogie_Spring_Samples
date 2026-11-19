@@ -23,7 +23,11 @@
 		</div>
 		<button type="submit">검색</button>
 	</form>
-
+	
+	<c:if test="${not empty msg}">
+		<p style="color: green">${msg}</p>
+	</c:if>
+	
 	<c:choose>
 		<%-- 1. 결과가 0건(비어있는 경우)일 때 --%>
 		<c:when test="${empty reviewList}">

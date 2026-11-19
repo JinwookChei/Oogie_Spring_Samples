@@ -524,6 +524,13 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - POST 처리 후 redirect → 브라우저가 GET으로 새 요청 → 마지막 요청 = GET(조회) → F5 해도 다시 보기만 함
 - 그래서 **DB를 바꾸는 요청(작성·수정·삭제) 성공 후엔 redirect**. 실패(입력 오류)는 DB를 안 바꿨으니 뷰를 바로 반환해 Model로 에러 표시 (개념 2)
 
+**8. 권한 검사는 Service에 (규칙의 주인)**
+- "작성자 본인만 삭제" = 화면 규칙이 아니라 **비즈니스 규칙** → 비즈니스 규칙을 책임지는 계층 = Service
+- Controller에 두면: 삭제를 부르는 곳(웹 화면, 나중의 REST API, 관리자 기능, 테스트…)이 늘 때마다 **같은 `if`를 복사** → 한 곳이라도 빠뜨리면 구멍
+- Service에 두면: 누가 부르든 `deleteReview`를 거치므로 **한 곳에서 항상 지켜짐**. Controller는 "누가 요청했는지(세션 mno)"만 넘기고 판단은 Service가
+- 비교 대상: 요청자 mno = 세션, 작성자 mno = **DB 재조회** (폼 값은 믿지 않음, 개념 5)
+- 위반 시 **커스텀 예외**: `IllegalArgumentException`(입력이 잘못됨)과 뜻이 다름 → 이름만 보고 "권한 없음"을 알 수 있고, M5에서 `@ExceptionHandler`로 403 페이지에 연결
+
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
@@ -555,6 +562,26 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 | 3-2-③-2 Q. redirect 직전 `model.addAttribute("msg")` → 상세에서 `${msg}` 보이나? | 안 보여요. redirect하면 새 요청이라 Model이 사라져서 | ✅ 정답 (개념 2와 연결). → 해결책 `addFlashAttribute` (개념 7) |
 | 3-2-③-2 flash 1차 | `writeReview`에 `RedirectAttributes` 추가·`Model` 제거, redirect 직전 `addFlashAttribute("msg", "정상적으로 리뷰가 등록 되었습니다.")`, `detail.jsp` otherwise 안 표 위에 `<c:if test="${not empty msg}">` | ✅ **코드 통과** (컴파일 OK). 👍 담는 시점(저장 성공 후·redirect 직전), `not empty`, 위치(표 밖·error 아닐 때만), 일반적인 이름 `msg`. 💅 변수 오타 `rediectAttr` → `redirectAttr`(STS `Alt+Shift+R` 이름 바꾸기) / 🟡 `write.jsp` 내용 칸 아직 `<input type="textarea">` (2번째 지적) / 브라우저 확인 3가지 대기 |
 | 3-2-③-2 flash 2차 | `redirectAttr`로 이름 수정, `write.jsp` 제목 `type="text"`·내용 `<textarea>` | ✅ **통과**. 남은 🟡·💅 모두 반영, DB에 rno 15·16 작성 확인 → **3-2-③ 작성 + 완료 메시지 완료** |
+| 3-3 Q1. 작성자 비교에 필요한 두 `mno`는 어디서? | 세션 | 🟡 절반 정답. **요청한 사람** = 세션 `loginUser.mno` ✅ / **리뷰 쓴 사람** = **DB**에서 `selectByRno(rno)`로 다시 조회한 `mno` (폼으로 온 `review.mno`는 사칭 가능 → 믿지 않음) |
+| 3-3 Q2. 권한 검사를 Controller가 아니라 Service에 두는 이유? | 모르겠어 | → 개념 8 (Service = 규칙의 주인, 호출하는 곳이 늘어도 한 곳에서 지켜짐) |
+| 3-3 단계 A 1차 (`ForbiddenException` + Service `deleteReview`·`updateReview`) | 예외 `extends RuntimeException`(본문 비어 있음) / delete: `selectByRno` → null이면 `IllegalArgumentException` → `mno !=` 이면 `ForbiddenException` → `delete` / update: `review.setMno(mno)` 후 바로 `update` | 👍 `exception` 패키지·`RuntimeException`, delete 흐름 3단계 정확(`selectByRno` 선택, DB 원본으로 비교, `int`끼리 `!=` OK). ❌ **update에 검사 없음** → 로그인한 누구나 남의 리뷰 수정 가능 (UPDATE SQL의 WHERE는 `rno`뿐이라 `setMno`는 아무것도 막지 못함) / ❌ 예외에 **메시지 생성자 없음** → `e.getMessage()`가 null / 🟡 공통 흐름 `private` 메서드로 / 🟡 `log.warn` 없음 / 💅 파라미터 순서 통일(delete는 rno·mno, update는 mno·review), 이름 `loginMno`, 남은 주석 2줄 / 🤔 imageName 질문 미답 |
+| 3-3 단계 B 1차 (삭제 Controller + detail 버튼) | `POST /{rno}/delete`, 로그인 검사, try에서 `deleteReview(rno, loginUser.getMno())`, catch 2개 → `addFlashAttribute("fail")`, 그 뒤 `addFlashAttribute("success", "삭제 완료")` → `redirect:/review/list` / detail.jsp 맨 아래 POST 폼 + 버튼 | 👍 URL·`@PostMapping`·`@PathVariable`, 로그인 검사, mno는 세션에서, 예외 2종 구분, 링크 대신 POST 폼, `${root}` + `${review.rno}`. ❌ **catch 뒤에도 코드가 계속 실행** → 실패해도 "삭제 완료"가 같이 담김 (catch 안에서 `return` 또는 성공 처리를 try 안으로) / ❌ `ForbiddenException`은 상세로 redirect해야 하는데 목록으로 감 / ❌ `list.jsp` 수정 없음 → 메시지가 안 보임 + 이름 `fail`·`success`는 detail.jsp(`msg`)와도 안 맞음 → 이름 정하고 받는 JSP와 맞추기 / 🟡 form 태그 `method="POST">>` → `>` 글자가 화면에 출력 / 🟡 폼이 `<c:choose>` 밖 → 없는 리뷰(error)일 때도 버튼이 나오고 action이 `/review//delete` → otherwise 안으로 / 💅 `rediAttr` → `redirectAttr`(write와 통일), 파라미터 사이 공백 2칸, 폼 `name` 불필요, `confirm` 선택 / 🤔 POST 이유·imageName 미답 |
+| 3-3 단계 B 2차 | catch 2개 안에 `return "/+rno";` 추가 | 👍 ❌1 방향 맞음(catch 안 `return` → 실패 시 "삭제 완료" 안 담김). ❌ **`"/+rno"`는 전부 따옴표 안 = 글자 그대로** (변수 아님) + `redirect:` 없음 → **뷰 이름**으로 해석 → `/WEB-INF/views//+rno.jsp` 찾다 404. 3-2-③ 2차 `"redirect:/review/{rno}"`와 같은 실수 → `"redirect:/review/" + rno` 모양(writeReview 맨 아래 참고) / ❌ `IllegalArgumentException`도 상세로 보냄 → 없는 리뷰는 목록으로 / ❌3 `list.jsp`·flash 이름(`fail`/`success` vs `msg`) 그대로 / 🟡4 `>>`·🟡5 폼 위치 그대로 / 💅 그대로 |
+| 3-3 단계 B 3차 | flash 이름 `msg`로 통일, `"redirect:/"+rno`, list.jsp `<c:if test="${empty msg}">`, detail.jsp `>>` 수정·폼을 `<c:otherwise>` 안으로 | 👍 변수를 따옴표 밖 + `redirect:`, `msg` 통일(detail.jsp 그대로 재사용), 🟡4·5 해결. ❌ `"redirect:/"+rno` → `/3` (`/review` 빠짐) → 매핑 없음 404 / ❌ `IllegalArgumentException`은 아직 상세로 → 목록으로 / ❌ list.jsp `empty msg` = **조건 반대** (메시지 없을 때만 빈 `<p>` 출력, 있을 때 숨김) → `not empty` / 💅 실패 메시지도 초록색(선택), `rediAttr`·공백 2칸·`name` 그대로 |
+| 3-3 단계 B 4차 | `IllegalArgumentException` → `"redirect:/list"`, `ForbiddenException` → `"redirect:/review"+rno`, list.jsp `not empty msg` | 👍 list.jsp 조건 해결, 예외별 갈 곳 구분. DB에서 rno 12~16 삭제됨 → 본인 삭제 성공 경로는 동작한 듯. ❌ `/list` → `/review` 빠짐 (404) / ❌ `"/review"+rno` → `/review3` (`/` 하나 빠짐, 404). redirect 주소 = 앱 루트부터 전체 경로, 성공 줄 `"redirect:/review/list"`·writeReview 줄과 같은 모양으로 |
+| 3-3 단계 B 5차 | `"redirect:/review/list"`, `"redirect:/review/"+rno` | ✅ **코드 통과** (컴파일 OK). 예외별 갈 곳·redirect 전체 경로 모두 맞음. 💅 `rediAttr`·공백 2칸·폼 `name` 그대로(선택) / 브라우저 확인 4가지 대기 |
+| 3-3 단계 B 브라우저 확인 | 4가지 모두 통과 (본인 삭제·남의 글 차단·로그아웃 상태·F5) | ✅ **삭제 기능 완료**. DB 확인: rno 1·2(mno=1) 그대로 = test 계정의 삭제가 Service에서 막힘, AUTO_INCREMENT 23 = 새 리뷰를 써서 삭제까지 확인. F5 이유 설명은 대기 |
+| 3-3 단계 B-④ `<c:if>` 1차 | `<c:if test="review.mno == {sessionScope.loginUser.mno}">` | 👍 비교할 두 값(리뷰 작성자 mno ↔ 세션 loginUser mno) 정확, `sessionScope.`로 어디서 꺼내는지 명시. ❌ **`$` 없음** → EL이 아니라 그냥 **글자** → `test`가 글자를 boolean으로 바꾸면 항상 `false` → 버튼이 **늘 숨겨짐** (에러 없음). 확인 2·3번은 우연히 통과, 1번(본인)에서만 드러남 / ❌ 식 전체를 `${ }` **하나**로 감싸야 함 (일부만 `{}`로 감싸는 문법 없음) |
+| 3-3 단계 B-④ `<c:if>` 2차 | `test="${review.mno} == ${sessionScope.loginUser.mno}"` | 👍 `$` 붙임. ❌ `${ }`가 **두 개** → 각각 계산된 뒤 사이의 ` == `는 글자로 남아 **이어 붙인 문자열** `"1 == 1"`이 됨 → boolean 변환 시 `"true"`가 아니면 `false` → 여전히 버튼이 늘 숨겨짐. `==`(비교)는 `${ }` **안**에 있어야 계산됨 → 식 전체를 `${ }` 하나로 |
+| 3-3 단계 B-④ `<c:if>` 3차 | `test="${review.mno == sessionScope.loginUser.mno}"` | ✅ **통과**. 연산자까지 `${ }` 하나 안 → true/false. 교훈: `${ }` 밖은 전부 글자, "보여야 하는 경우"(본인)도 꼭 확인 |
+| Q. 로그아웃 상태에서 `${sessionScope.loginUser.mno}`는? | 다른 값이 됨 | 🟡 방향 맞음, 더 정확히: EL은 **null에 안전** → `loginUser`가 없으면 `.mno`에서 NPE 대신 **`null`** (화면 출력은 빈 문자열) → `1 == null` = `false` → 버튼 숨김. Java였다면 `loginUser.getMno()`에서 NullPointerException |
+| Q. 삭제 직후 F5에서 일어난 일과 이유? | "삭제 완료" 문구가 사라짐, flash에 넣었기 때문 | ✅ 정답. 보충: flash = **redirect 다음 요청 한 번**만 살아 있고 꺼내면 지워짐 → F5 = `GET /review/list` 새 요청 → 이미 소비돼 없음. 그리고 PRG 덕분에 마지막 요청이 GET이라 **삭제가 다시 실행되지 않음**(이미 지운 rno로 재삭제 X) |
+| 3-3 단계 C Q. 삭제는 POST 폼인데 "수정" 버튼은 링크(GET)여도 되는 이유? | 삭제는 데이터 변경이 발생, "수정" 버튼은 수정 폼으로 이동일 뿐 | ✅ 정답. 보충: 기준은 "버튼 이름"이 아니라 **그 요청이 DB를 바꾸는가**. 수정 링크 = 폼 **보여 주기**(조회) → GET, 실제 저장은 폼 제출 = `POST /review/{rno}/edit`. 💅 삭제 요청은 내용을 담지 않고 경로의 `rno`만 보냄 |
+| 3-3 단계 B Q. 삭제를 GET 링크가 아니라 POST 폼으로 만드는 이유? | 데이터가 변경되는 요청이기 때문에 | ✅ 정답 (핵심). 보충: GET = "조회만 하는 안전한 요청"이라는 약속 → 브라우저 미리 불러오기·검색 로봇·주소 공유·방문 기록·`<img src="…/delete">` 한 줄로도 요청될 수 있음 → 삭제가 의도치 않게 실행. 로그아웃을 POST로 만든 이유와 같음 |
+| 3-3 Q. 사진 있는 리뷰를 수정하면 `image_name`은? | `""`이 된다 | 🟡 절반 정답 (사진이 사라진다는 결론은 맞음). 다만 **`""`가 아니라 `null`**: 폼에 이미지 입력칸 자체가 없으면 파라미터가 아예 안 옴 → 바인딩이 setter를 안 부름 → 필드 기본값 `null` 그대로 (`""`는 입력칸이 있는데 비워서 보냈을 때) → UPDATE가 `image_name = NULL`로 덮어씀 → DB에서 사진 연결 끊김 + 디스크에 파일만 남음(고아 파일). 해결은 M5에서: UPDATE에서 `image_name` 빼기 / `<set>`+`<if>` 동적 SQL / Service에서 `checkReviewMno`가 돌려준 원본의 `imageName` 채우기 |
+| 3-3 단계 A ❌1 (update 검사) | (튜터에게 작성 요청) | → 튜터 작성: `review.getRno()`로 `selectByRno` → null이면 `IllegalArgumentException` → 원본 `mno` ≠ 요청자면 `ForbiddenException` → `update`. `setMno(mno)` 줄 삭제(UPDATE SQL이 mno를 안 써서 의미 없음). 나머지(🟡 private 메서드·warn, 💅)는 교육생 몫. ❌2는 교육생이 같은 때 해결(`ForbiddenException(String msg)` + `super(msg)`, delete에 "접근 할 수 없습니다.") → update도 같은 메시지로 맞춤, 컴파일 OK |
+| 3-3 단계 A 🟡 private 메서드 1차 | `private Review checkReviewMno(int rno, int mno)`: 조회 → null → 작성자 검사 → 원본 반환 | 👍 private, 검사 순서, **원본 반환**(단계 C 수정 폼 미리 채우기·M5 사진 파일 삭제에 재사용 가능). ❌ **만들기만 하고 호출하지 않음** → delete·update에 6줄 중복 그대로 (뽑은 목적 = 중복 제거) / 🟡 `log.warn` 아직 없음 / 💅 이름이 "무엇을 하는지"(mno 비교)보다 "왜"(작성자 확인) 쪽이면 더 좋음 (`checkOwner`, `findOwnedReview`), 파라미터 `loginMno`, 73행 끝 탭 공백 |
+| 3-3 단계 A 2차 | delete·update에서 중복 6줄 삭제 → `checkReviewMno(...)` 호출 한 줄 + DAO 한 줄 (update는 `review.getRno()`) | ✅ **단계 A 통과** (컴파일 OK). 검사 규칙이 한 곳에만 있음. 남은 선택: 🟡 `log.warn`, 💅 이름(`checkOwner`)·`loginMno`·파라미터 순서·42~43행 주석 / 🤔 imageName 질문 미답 |
 
 ### 🛠️ 트러블슈팅
 
@@ -591,6 +618,11 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - [x] ③ 작성 `GET·POST /review/write` (작성자 = loginUser) ✅ (2026-11-18, 3차 통과, F5 중복 없음 확인, textarea 반영)
   - [x] ③-2 작성 후 "등록 완료" 메시지 `addFlashAttribute` ✅ (2026-11-18, 2차 통과)
   - [ ] ④ 수정·삭제 → 3-3 작성자 검사와 함께
+    - [x] 단계 A: `ForbiddenException` + Service `deleteReview`·`updateReview` + private `checkReviewMno` ✅ (2026-11-19)
+    - [x] 단계 B: `POST /review/{rno}/delete` + 상세 삭제 버튼 + list.jsp `msg` ✅ (2026-11-19, 5차 통과, 브라우저 4가지)
+    - [x] 단계 B-④: 삭제 버튼을 작성자에게만 (`<c:if>`, 보안 X·화면 편의) ✅ (3차 통과)
+    - [ ] 단계 C: 수정 `GET·POST /review/{rno}/edit` + `edit.jsp` ← 진행 중 (요구사항 제시)
+- [ ] (M5로 미룸) 수정 시 `image_name`이 `null`로 덮어써지는 문제 → 사진 업로드 만들 때 함께 해결
 - [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
 - [ ] 등록·수정·삭제 후 PRG + `addFlashAttribute` (등록 ✅, 수정·삭제 남음)
 - [ ] 작성자 본인 검사를 Service에 → 커스텀 예외
@@ -600,4 +632,10 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### 📌 다음 세션 시작점
 
-M3 3-2-④ **수정·삭제 + 3-3 작성자 본인 검사(Service, 커스텀 예외)** 개념 Q부터. 3-2-③ 작성(`/review/write`, 작성자 = 세션 `loginUser`, PRG, `addFlashAttribute("msg")`) 완료 (2026-11-18). 수정 폼은 `write.jsp` 복사, 메시지 이름 `msg` 재사용. M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete도 이때
+M3 **3-2-④ 단계 C: 리뷰 수정** 리뷰부터 (2026-11-19 중단). 삭제 + 작성자 검사(Service `checkReviewMno` + `ForbiddenException`) 완료.
+- 요구사항은 이미 제시함 (🙋 표 "단계 C Q" 근처 대화): ① Service `getReviewForEdit(rno, mno)` = `checkReviewMno` 반환값 그대로 ② `GET /review/{rno}/edit`: 로그인 검사 → 원본을 Model `review` → `review/edit`, 예외는 삭제와 같은 규칙(권한 → 상세, 없음 → 목록, flash `msg`) ③ `POST /review/{rno}/edit`: `Review` 바인딩 + 경로 `rno`를 `setRno` → `updateReview` → "수정 완료" + 상세 redirect ④ `edit.jsp`(write 복사, value 미리 채우기, textarea는 태그 사이) ⑤ `detail.jsp` 같은 `<c:if>` 안에 수정 링크
+- **교육생이 작성 시작한 상태 (아직 미검토, 컴파일 OK)**: `ReviewServiceImpl.getReviewForEdit` 있음(인터페이스에는 아직 없는 듯), `GET /{rno}/edit`가 `selectDetail` + null 검사 사용 중(→ `getReviewForEdit`로 작성자 검사해야 함, `selectDetail`은 null이면 이미 예외), `return "/review/edit"` 앞 `/`, `edit.jsp` 초안(14줄), POST·수정 링크는 아직 없음
+- 브라우저 확인 4가지: 본인 수정(값 채워짐·"수정 완료") / test 계정이 주소창 `/review/1/edit` → 상세 + "접근 할 수 없습니다." / `/review/9999/edit` → 목록 + 찾을 수 없음 / 수정 직후 F5
+- 단계 C 뒤: M3 남은 일(셀프 체크 3개, M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete) → M3 마무리·Notion 업로드
+- 테스트 계정: `test@gmail.com`(mno=24). 리뷰는 rno 1·2(mno=1)만 남음
+- 선택 💅(미반영): Service `log.warn`, `checkReviewMno` 이름·`loginMno`·파라미터 순서, `rediAttr` 이름, 42~43행 주석
