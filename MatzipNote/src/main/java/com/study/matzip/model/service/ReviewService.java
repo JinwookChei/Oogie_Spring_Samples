@@ -16,4 +16,6 @@ public interface ReviewService {
 	public void deleteReview(int rno, int mno);
 	
 	public void updateReview(int mno, Review review);
+
+	public Review getReviewForEdit(int rno, int mno);
 }

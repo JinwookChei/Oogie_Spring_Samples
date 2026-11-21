@@ -50,7 +50,12 @@ public class ReviewServiceImpl implements ReviewService {
 		checkReviewMno(review.getRno(), mno);
 		reviewDao.update(review);
 	}
-	
+
+	@Override
+	public Review getReviewForEdit(int rno, int mno) {
+		return checkReviewMno(rno, mno);
+	}
+
 	private Review checkReviewMno(int rno, int mno) {
 		Review selectedReview = reviewDao.selectByRno(rno);
 		if(selectedReview == null) {

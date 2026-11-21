@@ -45,6 +45,7 @@
 					method="POST">
 					<button>삭제</button>
 				</form>
+				<a href="${root}/review/${review.rno}/edit">수정</a>
 			</c:if>
 		</c:otherwise>
 	</c:choose>

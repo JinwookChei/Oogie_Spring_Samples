@@ -97,4 +97,47 @@ public class ReviewController {
 		rediAttr.addFlashAttribute("msg", "삭제 완료");
 		return "redirect:/review/list";
 	}
+
+	@GetMapping("/{rno}/edit")
+	String editForm(@PathVariable int rno, HttpSession session, Model model, RedirectAttributes rediAttr) {
+		Member loginUser = (Member)session.getAttribute("loginUser");
+		if(loginUser == null) {
+			return "redirect:/member/login";
+		}
+		try {
+			Review review = reviewService.getReviewForEdit(rno, loginUser.getMno());
+			model.addAttribute("review", review);
+		}
+		catch (IllegalArgumentException e) {
+			rediAttr.addFlashAttribute("msg", e.getMessage());
+			return "redirect:/review/list";
+		}
+		catch (ForbiddenException e) {
+			rediAttr.addFlashAttribute("msg", e.getMessage());
+			return "redirect:/review/"+rno;
+		}
+
+		return "review/edit";
+	}
+
+	@PostMapping("/{rno}/edit")
+	String editReview(@PathVariable int rno, Review review, HttpSession session, RedirectAttributes redAttr) {
+		Member loginUser = (Member)session.getAttribute("loginUser");
+		if(loginUser == null) {
+			return "redirect:/member/login";
+		}
+
+		review.setRno(rno);
+		try {
+			reviewService.updateReview(loginUser.getMno(), review);
+		} catch (IllegalArgumentException e) {
+			redAttr.addFlashAttribute("msg", e.getMessage());
+			return "redirect:/review/list";
+		} catch (ForbiddenException e) {
+			redAttr.addFlashAttribute("msg", e.getMessage());
+			return "redirect:/review/" + rno;
+		}
+		redAttr.addFlashAttribute("msg", "수정 완료");
+		return "redirect:/review/{rno}";
+	}
 }

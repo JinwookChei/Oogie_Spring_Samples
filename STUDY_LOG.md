@@ -617,11 +617,13 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - [x] ② 상세 `GET /review/{rno}` ✅ (3차 통과, 브라우저 4가지) (Service `getDetail` → `selectDetail` 재사용, 없는 번호 처리, `@PathVariable int rno`, `review/detail.jsp`에 `${review.writer.name}`, 목록 제목 → 상세 링크)
   - [x] ③ 작성 `GET·POST /review/write` (작성자 = loginUser) ✅ (2026-11-18, 3차 통과, F5 중복 없음 확인, textarea 반영)
   - [x] ③-2 작성 후 "등록 완료" 메시지 `addFlashAttribute` ✅ (2026-11-18, 2차 통과)
-  - [ ] ④ 수정·삭제 → 3-3 작성자 검사와 함께
+  - [x] ④ 수정·삭제 → 3-3 작성자 검사와 함께 ✅
     - [x] 단계 A: `ForbiddenException` + Service `deleteReview`·`updateReview` + private `checkReviewMno` ✅ (2026-11-19)
     - [x] 단계 B: `POST /review/{rno}/delete` + 상세 삭제 버튼 + list.jsp `msg` ✅ (2026-11-19, 5차 통과, 브라우저 4가지)
     - [x] 단계 B-④: 삭제 버튼을 작성자에게만 (`<c:if>`, 보안 X·화면 편의) ✅ (3차 통과)
-    - [ ] 단계 C: 수정 `GET·POST /review/{rno}/edit` + `edit.jsp` ← 진행 중 (요구사항 제시)
+    - [x] 단계 C: 수정 `GET·POST /review/{rno}/edit` + `edit.jsp` ✅ (2026-11-22, 브라우저 5가지 통과)
+      - (2026-11-22) ③ POST 1차 리뷰: 잘함 = 로그인 검사·`setRno` 위치·예외별 redirect, `redirect:/review/{rno}`(경로 변수 자동 치환). 고칠 것 = 🔴 try 뒤 `updateReview(rno, review)` 두 번째 호출(mno 자리에 rno → rno=mno일 땐 우연히 통과, 아니면 Forbidden 미처리 500) / 🟡 "수정 완료" flash 없음 / 💅 안 쓰는 `Model`, `eidtReview` 오타, TODO 주석. ⑤ 수정 링크 통과
+      - (2026-11-22) 교육생 요청으로 튜터가 수정: 두 번째 `updateReview` 삭제 → "수정 완료" flash, `Model` 제거, `editReview` 이름, TODO 삭제 (변수명 통일은 안 함). 컴파일 OK, 브라우저 5가지 확인 남음(리뷰 2 수정 포함)
 - [ ] (M5로 미룸) 수정 시 `image_name`이 `null`로 덮어써지는 문제 → 사진 업로드 만들 때 함께 해결
 - [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
 - [ ] 등록·수정·삭제 후 PRG + `addFlashAttribute` (등록 ✅, 수정·삭제 남음)
@@ -632,9 +634,12 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### 📌 다음 세션 시작점
 
-M3 **3-2-④ 단계 C: 리뷰 수정** 리뷰부터 (2026-11-19 중단). 삭제 + 작성자 검사(Service `checkReviewMno` + `ForbiddenException`) 완료.
+**(2026-11-22 갱신)** 단계 C 리뷰 수정 완료 ✅ (브라우저 5가지 통과, 커밋). **다음: 셀프 퀴즈 답(리뷰 1에서만 통과하던 버그가 왜 버그인지 / 테스트 데이터 고르는 법)부터** → M3 남은 일(셀프 체크 3개, `ReviewDaoTest` selectDetail·update·delete) → M3 마무리·Notion 업로드
+
+(이하 2026-11-19 기록) M3 **3-2-④ 단계 C: 리뷰 수정** 리뷰부터. 삭제 + 작성자 검사(Service `checkReviewMno` + `ForbiddenException`) 완료.
 - 요구사항은 이미 제시함 (🙋 표 "단계 C Q" 근처 대화): ① Service `getReviewForEdit(rno, mno)` = `checkReviewMno` 반환값 그대로 ② `GET /review/{rno}/edit`: 로그인 검사 → 원본을 Model `review` → `review/edit`, 예외는 삭제와 같은 규칙(권한 → 상세, 없음 → 목록, flash `msg`) ③ `POST /review/{rno}/edit`: `Review` 바인딩 + 경로 `rno`를 `setRno` → `updateReview` → "수정 완료" + 상세 redirect ④ `edit.jsp`(write 복사, value 미리 채우기, textarea는 태그 사이) ⑤ `detail.jsp` 같은 `<c:if>` 안에 수정 링크
-- **교육생이 작성 시작한 상태 (아직 미검토, 컴파일 OK)**: `ReviewServiceImpl.getReviewForEdit` 있음(인터페이스에는 아직 없는 듯), `GET /{rno}/edit`가 `selectDetail` + null 검사 사용 중(→ `getReviewForEdit`로 작성자 검사해야 함, `selectDetail`은 null이면 이미 예외), `return "/review/edit"` 앞 `/`, `edit.jsp` 초안(14줄), POST·수정 링크는 아직 없음
+- **(2026-11-21) 데스크탑 이동**: 옛 PC 초안은 커밋 안 돼서 못 가져옴 → 교육생 요청으로 **튜터가 ①·②(GET)·④ 초안 작성**(인터페이스 `getReviewForEdit`, `editForm`, `edit.jsp`, 컴파일 OK). **남은 것: ③ POST `/{rno}/edit`(컨트롤러 맨 아래 `TODO`) + ⑤ `detail.jsp` 수정 링크 → 교육생 작성**. 새 PC DB엔 `test@gmail.com` 없음(mno 1·5·6만) → 남의 글 확인은 5·6번 계정으로
+- (옛 PC 기록) **교육생이 작성 시작한 상태 (아직 미검토, 컴파일 OK)**: `ReviewServiceImpl.getReviewForEdit` 있음(인터페이스에는 아직 없는 듯), `GET /{rno}/edit`가 `selectDetail` + null 검사 사용 중(→ `getReviewForEdit`로 작성자 검사해야 함, `selectDetail`은 null이면 이미 예외), `return "/review/edit"` 앞 `/`, `edit.jsp` 초안(14줄), POST·수정 링크는 아직 없음
 - 브라우저 확인 4가지: 본인 수정(값 채워짐·"수정 완료") / test 계정이 주소창 `/review/1/edit` → 상세 + "접근 할 수 없습니다." / `/review/9999/edit` → 목록 + 찾을 수 없음 / 수정 직후 F5
 - 단계 C 뒤: M3 남은 일(셀프 체크 3개, M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete) → M3 마무리·Notion 업로드
 - 테스트 계정: `test@gmail.com`(mno=24). 리뷰는 rno 1·2(mno=1)만 남음
