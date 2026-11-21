@@ -655,7 +655,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### 📌 다음 세션 시작점
 
-**M3 완료 ✅ (2026-11-22) → M4 챕터로 이동.** 다음: M4 트랜잭션 + AOP 시작 (교안 Spring Transaction 다시 읽기 → 회원 탈퇴로 트랜잭션 없는 실패 재현부터). 새 PC 메모: STS 워크스페이스는 `C:\Project\Oogie_Spring_Samples`로 열기, 명령줄 Maven은 `JAVA_HOME` 필요
+**M3 완료 ✅ (2026-11-22) → M4 챕터로 이동** (아래 M4의 📌 참고)
 
 (이하 2026-11-19 기록) M3 **3-2-④ 단계 C: 리뷰 수정** 리뷰부터. 삭제 + 작성자 검사(Service `checkReviewMno` + `ForbiddenException`) 완료.
 - 요구사항은 이미 제시함 (🙋 표 "단계 C Q" 근처 대화): ① Service `getReviewForEdit(rno, mno)` = `checkReviewMno` 반환값 그대로 ② `GET /review/{rno}/edit`: 로그인 검사 → 원본을 Model `review` → `review/edit`, 예외는 삭제와 같은 규칙(권한 → 상세, 없음 → 목록, flash `msg`) ③ `POST /review/{rno}/edit`: `Review` 바인딩 + 경로 `rno`를 `setRno` → `updateReview` → "수정 완료" + 상세 redirect ④ `edit.jsp`(write 복사, value 미리 채우기, textarea는 태그 사이) ⑤ `detail.jsp` 같은 `<c:if>` 안에 수정 링크
@@ -665,3 +665,38 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - 단계 C 뒤: M3 남은 일(셀프 체크 3개, M2에서 미룬 `ReviewDaoTest` selectDetail·update·delete) → M3 마무리·Notion 업로드
 - 테스트 계정: `test@gmail.com`(mno=24). 리뷰는 rno 1·2(mno=1)만 남음
 - 선택 💅(미반영): Service `log.warn`, `checkReviewMno` 이름·`loginMno`·파라미터 순서, `rediAttr` 이름, 42~43행 주석
+
+---
+
+## M4. 트랜잭션 + AOP — ⏳ 시작 전
+
+### ✅ 한 일
+
+### 📚 배운 개념
+
+### 🙋 내 답변과 피드백
+
+| 질문 | 내 답 | 피드백 |
+|---|---|---|
+
+### 🛠️ 트러블슈팅
+
+### ❓ 내가 한 질문
+
+### ⏭️ 남은 일
+
+- [ ] 4-1 회원 탈퇴 = 리뷰 전체 삭제 + 회원 삭제 (DAO: 회원의 리뷰 전체 삭제, 회원 삭제 / Service 탈퇴 메서드)
+- [ ] 4-2 중간에 예외를 일부러 넣어 **트랜잭션 없이 실패 재현** (리뷰만 지워짐) → 테스트로 확인
+- [ ] 4-3 `@Transactional`로 해결 → 같은 테스트 통과
+- [ ] 4-4 Service 실행 시간 측정 `@Around` Aspect (`spring-boot-starter-aspectj` 의존성 확인)
+- [ ] 4-5 M3의 로그인 검사 중복(write GET·POST, delete, edit GET·POST 5곳) → "한 곳으로 모으는 방법" 토론 (Interceptor는 👀 설명만)
+- [ ] 셀프 체크: 같은 클래스 내부 호출에서 `@Transactional`이 안 먹는 이유 / checked 예외면 롤백될까?
+- [ ] 완료 기준: 탈퇴 테스트가 `@Transactional` 없이는 실패, 붙이면 통과 + 로그에 Service 실행 시간
+
+### 📌 다음 세션 시작점
+
+**M4 시작** (M3 완료 2026-11-22, 커밋 `982979a`까지 push됨).
+1. 튜터: Notion 교안 **[ Spring Framework ] > Spring Transaction** 다시 읽기, 샘플 `FW_07_mybatis_sol`의 `BasicMemberService.delete`·`@Transactional` 전파 테스트 확인(스크래치패드에 압축 해제)
+2. 개념 질문부터: "탈퇴 중 리뷰는 지워졌는데 회원 삭제에서 예외가 나면 DB는 어떤 상태?" → 4-1 요구사항 제시
+3. 현재 DB(새 PC): 회원 mno 1(`kim@matzip.com`)·5·6, 리뷰 rno 1·2(mno=1). 탈퇴 실험은 **테스트 코드 안에서 회원·리뷰를 만들어** 진행 (실데이터 보호)
+- 환경 메모(새 PC): STS `C:\Project\ssafy\IDE\sts-5.0.1.RELEASE`, 워크스페이스는 `C:\Project\Oogie_Spring_Samples`로 열기. 명령줄 Maven은 `JAVA_HOME=C:\Users\woook\.jdks\ms-25.0.5.0.2` 필요. 앱 DB 계정은 `root`(CLAUDE.md의 ssafy 아님)
