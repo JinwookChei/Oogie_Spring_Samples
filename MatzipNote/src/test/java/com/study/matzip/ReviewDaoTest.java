@@ -3,6 +3,7 @@ package com.study.matzip;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -114,5 +115,76 @@ public class ReviewDaoTest {
 		assertNotNull(results);
 		// 조건이 없으니 방금 넣은 리뷰도 반드시 나와야 한다 (기존 DB 데이터에 기대지 않는 검증)
 		assertTrue(results.stream().anyMatch(r -> r.getRno() == review.getRno()));
+	}
+
+	// 아래 테스트들이 공통으로 쓰는 준비: 리뷰를 하나 넣고, PK가 채워진 객체를 돌려준다
+	private Review insertReview() {
+		Review review = Review.builder()
+				.mno(mno)
+				.title("원래 제목")
+				.content("원래 본문")
+				.rating(2)
+				.build();
+		reviewDao.insert(review);
+		return review;
+	}
+
+	// JOIN + resultMap의 <association>이 writer(Member)를 채우는지 확인
+	@Test
+	public void selectDetailTest() {
+		Review inserted = insertReview();
+
+		Review detail = reviewDao.selectDetail(inserted.getRno());
+
+		assertNotNull(detail);
+		assertEquals(inserted.getRno(), detail.getRno());
+		assertNotNull(detail.getWriter(), "writer가 null → resultMap의 association을 확인하세요");
+		assertEquals(mno, detail.getWriter().getMno());       // writer_mno 별칭 → writer.mno
+		assertEquals("리뷰테스터", detail.getWriter().getName()); // @BeforeEach에서 만든 회원
+	}
+
+	@Test
+	public void updateTest() {
+		Review review = insertReview();
+
+		// 원래 값과 "확실히 다른" 값으로 바꾼다 (같은 값이면 update가 안 돼도 테스트가 통과해 버림)
+		review.setTitle("바뀐 제목");
+		review.setContent("바뀐 본문");
+		review.setRating(5);
+
+		int result = reviewDao.update(review);
+
+		assertEquals(1, result); // 영향받은 행 수
+
+		// 들고 있는 객체가 아니라 DB에서 다시 꺼낸 값으로 확인해야 "DB에 반영됐는지"를 알 수 있다
+		Review updated = reviewDao.selectByRno(review.getRno());
+		assertEquals("바뀐 제목", updated.getTitle());
+		assertEquals("바뀐 본문", updated.getContent());
+		assertEquals(5, updated.getRating());
+	}
+
+	@Test
+	public void deleteTest() {
+		Review review = insertReview();
+
+		int result = reviewDao.delete(review.getRno());
+
+		assertEquals(1, result);
+		assertNull(reviewDao.selectByRno(review.getRno())); // 다시 조회하면 없어야 한다
+	}
+
+	// 없는 번호: 예외가 아니라 "영향받은 행 수 0"으로 나타난다 → Service가 먼저 조회해서 막는 이유
+	@Test
+	public void updateAndDeleteNotFoundTest() {
+		Review ghost = Review.builder()
+				.rno(-1)
+				.title("없는 리뷰")
+				.content("없는 리뷰")
+				.rating(3)
+				.build();
+
+		assertEquals(0, reviewDao.update(ghost));
+		assertEquals(0, reviewDao.delete(-1));
+		assertNull(reviewDao.selectDetail(-1));
 	}
 }

@@ -113,15 +113,15 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
-### M3. MVC 요청 처리 🔍 · 3~5시간
+### M3. MVC 요청 처리 🔍 · 3~5시간 — ✅ 완료 (2026-11-22)
 교안: Spring MVC pt.1, pt.2 (Part 1·2) · 샘플: FW_05 `SimpleController`
 
 - [x] 로그인·로그아웃 (세션에 `loginUser`) ✅ (2026-11-17)
-- [ ] 리뷰 목록(검색 포함)·상세·작성·수정·삭제 Controller — 목록·상세·작성·삭제 ✅, 수정 남음
-- [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
-- [ ] 등록·수정·삭제 후 **PRG** + `addFlashAttribute`로 "완료" 메시지 — 등록·삭제 ✅, 수정 남음
+- [x] 리뷰 목록(검색 포함)·상세·작성·수정·삭제 Controller ✅ (2026-11-22)
+- [x] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩 ✅
+- [x] 등록·수정·삭제 후 **PRG** + `addFlashAttribute`로 "완료" 메시지 ✅ (2026-11-22)
 - [x] 작성자 본인 검사를 **Service**에 구현 → 위반 시 커스텀 예외 ✅ (2026-11-19, `ForbiddenException` + `checkReviewMno`)
-- [ ] 로그인 검사를 **각 Controller 메서드에 직접** 넣어 보기 (중복이 생기는 걸 일부러 체감 → M4 AOP의 동기)
+- [x] 로그인 검사를 **각 Controller 메서드에 직접** 넣어 보기 ✅ (중복이 생기는 걸 일부러 체감 → M4 AOP의 동기)
 
 **셀프 체크**: 왜 등록 후에 forward가 아니라 redirect일까? redirect 후 `Model`에 넣은 값은 왜 사라질까? 권한 검사는 왜 Controller가 아니라 Service에 둘까?
 
@@ -192,3 +192,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-17 | M3 진행 중 | **3-1 로그인·로그아웃 완료**(세션 `loginUser`, `invalidate()`, `MemberServiceTest` 5개), **3-2-① 목록(검색)·② 상세(`@PathVariable`, 없는 번호 처리) 완료**. **다음: 3-2-③ 리뷰 작성 개념 Q(작성자 mno를 폼에서 받으면 안 되는 이유)부터** (`STUDY_LOG.md` 📌 참고) |
 | 2026-11-18 | M3 진행 중 | **3-2-③ 리뷰 작성 완료**: 작성자 mno는 세션 `loginUser`에서(hidden 사칭 방지), GET·POST 로그인 검사, insert 후 `getRno()`(반환값은 행 수), PRG(F5 중복 없음), `addFlashAttribute("msg")` 완료 메시지. **다음: 3-2-④ 수정·삭제 + 3-3 작성자 본인 검사 개념 Q부터** |
 | 2026-11-19 | M3 진행 중 | **3-3 작성자 검사 + 3-2-④ 삭제 완료**: `ForbiddenException`, Service private `checkReviewMno`(DB 원본으로 비교), `POST /review/{rno}/delete`(예외별 redirect, flash `msg`), 삭제 버튼 작성자에게만(`<c:if>` EL 문법), 브라우저 4가지(남의 글 차단) 통과. **다음: 단계 C 수정 리뷰부터** (교육생 초안 작성 중, `STUDY_LOG.md` 📌 참고) |
+| 2026-11-22 | **M3 완료** | 데스크탑 이동 점검(JDK·STS Lombok·MySQL·`mvnw test`), 수정 초안 유실 → 단계 C 리뷰 수정 완료(`getReviewForEdit`, `GET·POST /{rno}/edit`, `edit.jsp`, 수정 링크, 🔴 `updateReview` 이중 호출 수정), 브라우저 5가지 통과, `ReviewDaoTest` selectDetail·update·delete·없는 번호 추가(16개 초록), 셀프 체크, Notion 업로드. 미룸: `@MybatisTest`/`@Mapper` 실험, `image_name` null(M5). **다음: M4 트랜잭션 + AOP** |

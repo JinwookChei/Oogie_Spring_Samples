@@ -478,7 +478,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ---
 
-## M3. MVC 요청 처리 — 🟡 진행 중
+## M3. MVC 요청 처리 — ✅ 완료 (2026-11-22) · [Notion](https://app.notion.com/p/41f6412b0acd815eaaedc11cfc01c322)
 
 ### ✅ 한 일
 
@@ -486,6 +486,11 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - **3-1 로그인·로그아웃 완료** ✅ (2026-11-17): `MemberService.login`(통합 실패 메시지, password null) + `MemberServiceTest` 5개(튜터 작성) + `MemberController`(`/member/signup`·`/member/login` GET/POST 통합, `POST /member/logout` + `invalidate()`) + `login.jsp` + `index.jsp`(`<c:choose>`, 로그아웃 POST 폼) → 브라우저 확인 4가지 통과
 - **3-2-① 리뷰 목록(검색) 완료** ✅ (2026-11-17): `ReviewService`/`ReviewServiceImpl`(search 위임) + `ReviewController` `GET /review/list`(`@ModelAttribute ReviewSearch`, `addAttribute("reviewList")`) + `review/list.jsp`(GET 검색 폼, `<c:choose>` 0건, `<c:forEach>` + `varStatus`) + index 링크 → 2차 통과, 브라우저 확인 5가지 통과 (조건 없음·키워드만·별점만·둘 다·빈 별점)
 - **3-2-② 리뷰 상세 완료** ✅ (2026-11-17): Service `selectDetail`(DAO `selectDetail` JOIN 재사용, null → `IllegalArgumentException`) + `GET /review/{rno}`(`@PathVariable int rno`, `IllegalArgumentException`만 catch → `error`) + `review/detail.jsp`(`<c:choose>`, `${review.writer.name}`) + 목록 제목 링크(`item.rno`) → 3차 통과, 브라우저 4가지 통과 (클릭·없는 번호·`abc` 400·`/list` 우선)
+- **3-2-③ 리뷰 작성 완료** ✅ (2026-11-18): `GET·POST /review/write`, 작성자 mno는 세션 `loginUser`에서, 로그인 검사, insert 후 `getRno()` → `redirect:/review/` + rno (PRG), `addFlashAttribute("msg")` 등록 완료 메시지, `write.jsp`(`<textarea>`) → 3차 통과
+- **3-3 작성자 검사 + 3-2-④ 삭제 완료** ✅ (2026-11-19): `ForbiddenException`, Service private `checkReviewMno`(DB 원본으로 비교) → `deleteReview`·`updateReview`, `POST /review/{rno}/delete`(없음 → 목록, 남의 글 → 상세, flash `msg`), 삭제 버튼 작성자에게만(`<c:if>`) → 5차 통과, 브라우저 4가지
+- **3-2-④ 리뷰 수정 완료** ✅ (2026-11-22): 데스크탑 이동으로 초안 유실 → 튜터가 Service `getReviewForEdit`·`GET /{rno}/edit`·`edit.jsp` 작성, 교육생이 `POST /{rno}/edit` + 상세 수정 링크 작성 → 1차 리뷰(🔴 `updateReview` 두 번 호출) 후 튜터 수정 → 브라우저 5가지 통과 (리뷰 2 수정 포함)
+- **`ReviewDaoTest` 보강** ✅ (2026-11-22, 튜터 작성): `selectDetail`(association)·`update`(다시 조회)·`delete`·없는 번호(행 수 0) → 전체 16개 초록
+- 셀프 체크 3문제 (Q1·Q2 정답, Q3 보충)
 
 ### 📚 배운 개념
 
@@ -524,12 +529,23 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - POST 처리 후 redirect → 브라우저가 GET으로 새 요청 → 마지막 요청 = GET(조회) → F5 해도 다시 보기만 함
 - 그래서 **DB를 바꾸는 요청(작성·수정·삭제) 성공 후엔 redirect**. 실패(입력 오류)는 DB를 안 바꿨으니 뷰를 바로 반환해 Model로 에러 표시 (개념 2)
 
+**7. `addFlashAttribute` (redirect 너머로 메시지 한 번 보내기)**
+- `RedirectAttributes.addFlashAttribute("msg", …)` → redirect 직전 **세션에 잠깐 보관** → 다음 요청에서 Model로 옮겨지고 세션에서 바로 지워짐 → JSP에서 `${msg}`
+- 그래서 F5(새 요청)하면 메시지가 사라짐. 실패·성공 모두 같은 이름 `msg`로 통일하면 받는 JSP가 하나의 `<c:if test="${not empty msg}">`로 충분
+- redirect 주소의 `{rno}`는 Model이 아니라 **현재 요청의 경로 변수**로 채워짐 (`POST /review/{rno}/edit` 안에서는 `redirect:/review/{rno}` 가능, `/write`처럼 경로 변수가 없으면 500)
+
 **8. 권한 검사는 Service에 (규칙의 주인)**
 - "작성자 본인만 삭제" = 화면 규칙이 아니라 **비즈니스 규칙** → 비즈니스 규칙을 책임지는 계층 = Service
 - Controller에 두면: 삭제를 부르는 곳(웹 화면, 나중의 REST API, 관리자 기능, 테스트…)이 늘 때마다 **같은 `if`를 복사** → 한 곳이라도 빠뜨리면 구멍
 - Service에 두면: 누가 부르든 `deleteReview`를 거치므로 **한 곳에서 항상 지켜짐**. Controller는 "누가 요청했는지(세션 mno)"만 넘기고 판단은 Service가
 - 비교 대상: 요청자 mno = 세션, 작성자 mno = **DB 재조회** (폼 값은 믿지 않음, 개념 5)
 - 위반 시 **커스텀 예외**: `IllegalArgumentException`(입력이 잘못됨)과 뜻이 다름 → 이름만 보고 "권한 없음"을 알 수 있고, M5에서 `@ExceptionHandler`로 403 페이지에 연결
+- `<c:if>`로 버튼을 숨기는 건 **화면 편의**일 뿐, 주소창에 직접 입력하면 그대로 요청됨 → 진짜 차단은 Service
+- DAO는 없는 번호로 update·delete해도 예외 없이 **행 수 0**만 돌려줌 → Service가 먼저 조회해서 의미 있는 예외로 바꿈
+
+**9. "동작한다 ≠ 맞다" (테스트 데이터 고르기)**
+- 수정 POST에서 `updateReview(rno, review)`(mno 자리에 rno)를 한 번 더 부른 버그가 리뷰 1(rno 1 = mno 1)에서는 **우연히 통과** → 리뷰 2에서 500
+- 서로 다른 의미의 값이 겹치지 않게, 성공 하나가 아니라 두 번째 데이터·남의 글·없는 번호까지 확인. 수정 테스트는 **원래 값과 확실히 다른 값**으로, 결과는 **DB에서 다시 꺼내** 비교
 
 ### 🙋 내 답변과 피드백
 
@@ -581,6 +597,10 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 | 3-3 Q. 사진 있는 리뷰를 수정하면 `image_name`은? | `""`이 된다 | 🟡 절반 정답 (사진이 사라진다는 결론은 맞음). 다만 **`""`가 아니라 `null`**: 폼에 이미지 입력칸 자체가 없으면 파라미터가 아예 안 옴 → 바인딩이 setter를 안 부름 → 필드 기본값 `null` 그대로 (`""`는 입력칸이 있는데 비워서 보냈을 때) → UPDATE가 `image_name = NULL`로 덮어씀 → DB에서 사진 연결 끊김 + 디스크에 파일만 남음(고아 파일). 해결은 M5에서: UPDATE에서 `image_name` 빼기 / `<set>`+`<if>` 동적 SQL / Service에서 `checkReviewMno`가 돌려준 원본의 `imageName` 채우기 |
 | 3-3 단계 A ❌1 (update 검사) | (튜터에게 작성 요청) | → 튜터 작성: `review.getRno()`로 `selectByRno` → null이면 `IllegalArgumentException` → 원본 `mno` ≠ 요청자면 `ForbiddenException` → `update`. `setMno(mno)` 줄 삭제(UPDATE SQL이 mno를 안 써서 의미 없음). 나머지(🟡 private 메서드·warn, 💅)는 교육생 몫. ❌2는 교육생이 같은 때 해결(`ForbiddenException(String msg)` + `super(msg)`, delete에 "접근 할 수 없습니다.") → update도 같은 메시지로 맞춤, 컴파일 OK |
 | 3-3 단계 A 🟡 private 메서드 1차 | `private Review checkReviewMno(int rno, int mno)`: 조회 → null → 작성자 검사 → 원본 반환 | 👍 private, 검사 순서, **원본 반환**(단계 C 수정 폼 미리 채우기·M5 사진 파일 삭제에 재사용 가능). ❌ **만들기만 하고 호출하지 않음** → delete·update에 6줄 중복 그대로 (뽑은 목적 = 중복 제거) / 🟡 `log.warn` 아직 없음 / 💅 이름이 "무엇을 하는지"(mno 비교)보다 "왜"(작성자 확인) 쪽이면 더 좋음 (`checkOwner`, `findOwnedReview`), 파라미터 `loginMno`, 73행 끝 탭 공백 |
+| 단계 C 퀴즈. 리뷰 1 수정은 멀쩡했는데 왜 버그? 테스트 데이터는? | (교육생 요청으로 튜터가 답함) | 결과가 맞아 보인 건 **rno 1 = mno 1이라는 우연** 때문. 코드는 "rno를 mno 자리에" 넘기는 틀린 일을 하고 있었고, 두 값이 같아서 안 드러났을 뿐 (UPDATE도 2번 실행). 데이터가 바뀌면(리뷰 2) 500. → **"동작한다 ≠ 맞다"**. 테스트 데이터는 **서로 다른 값끼리 헷갈릴 수 없게** 고른다: rno와 mno가 겹치지 않게, 성공 케이스 하나만이 아니라 다른 사람 글·없는 번호·두 번째 데이터까지. 테스트 코드의 고정값(1, 1, 1…)도 같은 함정 |
+| M3 셀프 체크 Q1. 등록 후 forward 말고 redirect인 이유? | forward면 F5 때 리뷰가 계속 등록됨 | ✅ 정답. 보충: forward는 서버 안에서 JSP로 넘길 뿐이라 브라우저의 마지막 요청은 여전히 `POST /review/write` → F5 = POST 재전송. redirect는 브라우저가 `GET /review/{rno}`를 새로 보냄 → 마지막 요청이 GET이 되어 F5해도 조회만 (PRG) |
+| M3 셀프 체크 Q2. redirect 후 Model 값이 사라지는 이유? flash는? | Model은 requestScope → redirect는 클라이언트의 새 요청이라 남는 게 없음. flash는 session을 써서 한 번만 사용 | ✅ 정답 (정확함). 보충: flash는 redirect 직전 세션에 잠깐 보관 → 다음 요청에서 Model로 옮겨지고 세션에서 바로 지워짐 → 그래서 F5하면 메시지가 사라짐 |
+| M3 셀프 체크 Q3. 권한 검사를 Controller가 아니라 Service에 두는 이유? | 서비스가 하는 일이기 때문 | 🟡 방향은 맞지만 "왜 서비스 일인지"가 빠짐. ① **문이 여러 개**: 삭제·수정 폼·수정 저장 3곳 + 나중에 다른 Controller·REST API → Service는 모두가 지나가는 **한 곳**, Controller에 두면 한 곳만 빠뜨려도 뚫림 ② **비즈니스 규칙**(누가 고칠 수 있나)이지 HTTP 처리가 아님 ③ **DB 원본으로 비교**해야 함(`checkReviewMno`가 DAO로 조회) ④ 웹 없이 단위 테스트 가능. `<c:if>`는 버튼만 숨길 뿐 주소창 입력은 못 막음(브라우저 확인 3번) |
 | 3-3 단계 A 2차 | delete·update에서 중복 6줄 삭제 → `checkReviewMno(...)` 호출 한 줄 + DAO 한 줄 (update는 `review.getRno()`) | ✅ **단계 A 통과** (컴파일 OK). 검사 규칙이 한 곳에만 있음. 남은 선택: 🟡 `log.warn`, 💅 이름(`checkOwner`)·`loginMno`·파라미터 순서·42~43행 주석 / 🤔 imageName 질문 미답 |
 
 ### 🛠️ 트러블슈팅
@@ -625,16 +645,17 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
       - (2026-11-22) ③ POST 1차 리뷰: 잘함 = 로그인 검사·`setRno` 위치·예외별 redirect, `redirect:/review/{rno}`(경로 변수 자동 치환). 고칠 것 = 🔴 try 뒤 `updateReview(rno, review)` 두 번째 호출(mno 자리에 rno → rno=mno일 땐 우연히 통과, 아니면 Forbidden 미처리 500) / 🟡 "수정 완료" flash 없음 / 💅 안 쓰는 `Model`, `eidtReview` 오타, TODO 주석. ⑤ 수정 링크 통과
       - (2026-11-22) 교육생 요청으로 튜터가 수정: 두 번째 `updateReview` 삭제 → "수정 완료" flash, `Model` 제거, `editReview` 이름, TODO 삭제 (변수명 통일은 안 함). 컴파일 OK, 브라우저 5가지 확인 남음(리뷰 2 수정 포함)
 - [ ] (M5로 미룸) 수정 시 `image_name`이 `null`로 덮어써지는 문제 → 사진 업로드 만들 때 함께 해결
-- [ ] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩
-- [ ] 등록·수정·삭제 후 PRG + `addFlashAttribute` (등록 ✅, 수정·삭제 남음)
-- [ ] 작성자 본인 검사를 Service에 → 커스텀 예외
-- [ ] 로그인 검사를 각 Controller 메서드에 직접 (M4 AOP 동기)
-- [ ] (M2에서 미룸) `ReviewDaoTest` selectDetail·update·delete, `@MybatisTest` + `@Mapper` 실험, 괄호 빨간불 실험
-- [ ] 셀프 체크: redirect 이유 / redirect 후 Model 값이 사라지는 이유 / 권한 검사를 Service에 두는 이유
+- [x] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩 ✅ (로그인·검색·상세/수정/삭제에서 사용)
+- [x] 등록·수정·삭제 후 PRG + `addFlashAttribute` ✅ (2026-11-22)
+- [x] 작성자 본인 검사를 Service에 → 커스텀 예외 ✅ (2026-11-19)
+- [x] 로그인 검사를 각 Controller 메서드에 직접 (M4 AOP 동기) ✅ (write·delete·edit GET/POST 5군데 중복)
+- [x] (M2에서 미룸) `ReviewDaoTest` selectDetail·update·delete ✅ (2026-11-22, 교육생 요청으로 튜터 작성: `insertReview()` 헬퍼, association 확인, update는 다시 조회해 비교, delete 후 `assertNull`, 없는 번호 = 행 수 0 → 전체 16개 초록, DB 롤백 확인)
+- [ ] (선택, M3 범위 밖으로 미룸) `@MybatisTest` + `@Mapper` 실험, 괄호 빨간불 실험
+- [x] 셀프 체크 ✅ (2026-11-22, Q1·Q2 정답, Q3 🟡 보충): redirect 이유 / redirect 후 Model 값이 사라지는 이유 / 권한 검사를 Service에 두는 이유
 
 ### 📌 다음 세션 시작점
 
-**(2026-11-22 갱신)** 단계 C 리뷰 수정 완료 ✅ (브라우저 5가지 통과, 커밋). **다음: 셀프 퀴즈 답(리뷰 1에서만 통과하던 버그가 왜 버그인지 / 테스트 데이터 고르는 법)부터** → M3 남은 일(셀프 체크 3개, `ReviewDaoTest` selectDetail·update·delete) → M3 마무리·Notion 업로드
+**M3 완료 ✅ (2026-11-22) → M4 챕터로 이동.** 다음: M4 트랜잭션 + AOP 시작 (교안 Spring Transaction 다시 읽기 → 회원 탈퇴로 트랜잭션 없는 실패 재현부터). 새 PC 메모: STS 워크스페이스는 `C:\Project\Oogie_Spring_Samples`로 열기, 명령줄 Maven은 `JAVA_HOME` 필요
 
 (이하 2026-11-19 기록) M3 **3-2-④ 단계 C: 리뷰 수정** 리뷰부터. 삭제 + 작성자 검사(Service `checkReviewMno` + `ForbiddenException`) 완료.
 - 요구사항은 이미 제시함 (🙋 표 "단계 C Q" 근처 대화): ① Service `getReviewForEdit(rno, mno)` = `checkReviewMno` 반환값 그대로 ② `GET /review/{rno}/edit`: 로그인 검사 → 원본을 Model `review` → `review/edit`, 예외는 삭제와 같은 규칙(권한 → 상세, 없음 → 목록, flash `msg`) ③ `POST /review/{rno}/edit`: `Review` 바인딩 + 경로 `rno`를 `setRno` → `updateReview` → "수정 완료" + 상세 redirect ④ `edit.jsp`(write 복사, value 미리 채우기, textarea는 태그 사이) ⑤ `detail.jsp` 같은 `<c:if>` 안에 수정 링크
