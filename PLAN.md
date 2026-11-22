@@ -165,9 +165,37 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
+### M6. Interceptor 🔍 · 약 1시간 (시간 빠듯 → 핵심만)
+교안: Interceptor (Notion) · 샘플: 없음 (교안 TODO 06·07 기준)
+
+- [ ] 🔍 `LoginCheckInterceptor implements HandlerInterceptor`: `preHandle`에서 세션 `loginUser` 확인 → 없으면 `sendRedirect` + `return false`
+- [ ] 🔍 `WebConfig.addInterceptors`에 등록, `addPathPatterns`로 리뷰 작성·수정·삭제만
+- [ ] 🔍 Controller 5곳의 로그인 검사 제거 → 전체 테스트 통과 확인 (`ReviewControllerTest` ② 비로그인 작성 테스트가 그대로 통과해야 함)
+- 👀 (설명만) `postHandle`·`afterCompletion`, 여러 Interceptor 순서, `addViewControllers`, Filter vs Interceptor vs AOP
+
+**셀프 체크**: `preHandle`이 false를 반환하면 무엇을 직접 해 줘야 할까?
+
+**✅ 완료 기준**: Controller에 로그인 검사 코드가 없는데, 비로그인으로 작성·수정·삭제에 접근하면 로그인 화면으로 간다. 전체 테스트 통과.
+
+---
+
+### M7. REST API · 약 2시간 (시간 빠듯 → 핵심만)
+교안: REST API (Notion) · 샘플: 없음 (교안 TODO 02·03 기준)
+
+- [ ] 🔍 `ReviewRestController`(`@RestController`, `/api/reviews`): 상세 `GET /{rno}` + 작성 `POST`(`@RequestBody`) → `ResponseEntity`(작성은 201 Created)
+- [ ] 🔍 `@RestControllerAdvice`(API 패키지만) + `ProblemDetail`: 없는 리뷰 → 404 JSON
+- [ ] 🔍 MockMvc `jsonPath` 테스트 1~2개
+- 👀 (설명만) REST URL 설계 규칙, PUT vs PATCH, API Versioning, Swagger, CORS·SOP, `RestClient`
+
+**셀프 체크**: 화면용 `@ControllerAdvice`와 API용 `@RestControllerAdvice`를 왜 나눌까?
+
+**✅ 완료 기준**: `/api/reviews`로 리뷰를 JSON으로 조회·작성할 수 있고, 없는 리뷰는 JSON(`ProblemDetail`) 404. `jsonPath` 테스트 통과.
+
+---
+
 ## 범위 밖 (큰 그림만)
 
-Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configuration 직접 만들기, Interceptor·Filter 구현, REQUIRED 외의 전파 속성·isolation, `@Async`·`@Cacheable`, Resilience(`@ConcurrencyLimit`, `@Retryable`), Base64·Ajax 업로드, `@RestControllerAdvice`·ProblemDetail, 페이징
+Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configuration 직접 만들기, Filter 구현, REQUIRED 외의 전파 속성·isolation, `@Async`·`@Cacheable`, Resilience(`@ConcurrencyLimit`, `@Retryable`), Base64·Ajax 업로드, 페이징, Swagger·CORS·RestClient 직접 구성(M7에서 👀), Spring Security
 
 ## 의도적으로 단순화한 것
 
@@ -195,3 +223,5 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-22 | **M3 완료** | 데스크탑 이동 점검(JDK·STS Lombok·MySQL·`mvnw test`), 수정 초안 유실 → 단계 C 리뷰 수정 완료(`getReviewForEdit`, `GET·POST /{rno}/edit`, `edit.jsp`, 수정 링크, 🔴 `updateReview` 이중 호출 수정), 브라우저 5가지 통과, `ReviewDaoTest` selectDetail·update·delete·없는 번호 추가(16개 초록), 셀프 체크, Notion 업로드. 미룸: `@MybatisTest`/`@Mapper` 실험, `image_name` null(M5). **다음: M4 트랜잭션 + AOP** |
 | 2026-11-22 | **M4 완료** | 4-1 탈퇴(`deleteByMno`·`delete`·`deleteAccount`, SQL 오타 `DELETE *`·`WHEN` 수정), 4-2 `MemberWithdrawTest`로 리뷰만 지워지는 실패 재현(튜터 수정 후 🔴), 4-3 `@Transactional` 한 줄로 🟢 + 정상 탈퇴 테스트·실험 `@Disabled`, `TransactionInterceptor` 소스 읽기, 4-4 `spring-boot-starter-aspectj` + `ExecutionTimeAspect`(Pointcut 오타로 매칭 0개 → 튜터 수정, try/finally), 4-5 Aspect·Interceptor·Filter 비교, 셀프 체크 2문제 정답, Notion 업로드. 남은 💅: `deleteAccount` TODO 주석. **다음: M5 `ImageStorage` DI** |
 | 2026-11-22 | **M5 완료 — 맛집 노트 M1~M5 전체 완료** | M5부터 튜터가 교안을 먼저 설명. 5-1 `ImageStorage` DI(빈 2개 `NoUnique` → `@Profile` → 0개 `NoSuch` 실험, `ImageStorageTest`), 5-2 사진 업로드(multipart 설정, `enctype`, `MultipartFile`, `WebConfig.addResourceHandlers`, 수정 시 DB 원본 이름 유지로 M3 `image_name` null 버그 해결, `InvalidImageException`), 5-3 `MvcExceptionHandler` 403/500 + `error/404.jsp`, 5-4 `ReviewControllerTest`(`@WebMvcTest`) 2개. 전체 테스트 24개(1 Skipped). 셀프 체크는 튜터 설명. Notion 업로드. 남은 선택: `@MybatisTest`/`@Mapper` 실험, Interceptor 구현, 수정 폼·저장의 Forbidden catch 정리 |
+| 2026-11-22 | 계획 추가 | Notion `[ Spring Framework ]`에 Interceptor·REST API 교안이 추가됨 → 교육생 결정으로 **M6 Interceptor**, **M7 REST API** 추가, 범위 밖 목록 조정, CLAUDE.md 교안 순서 갱신 (샘플 zip 없음) |
+| 2026-11-22 | 계획 축소 | 교육생 시간 빠듯 → M6 약 1시간(Interceptor 등록·로그인 검사 제거만), M7 약 2시간(상세·작성 API + ProblemDetail 404 + jsonPath 테스트만, 나머지는 👀 설명) |

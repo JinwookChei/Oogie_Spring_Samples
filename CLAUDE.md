@@ -40,7 +40,7 @@
 
 강의 순서와 교안은 Notion `[ 공부 정리 ]` 페이지의 **[ 백엔드 ]**, **[ Spring Framework ]** 섹션에 있다. 설명은 이 교안의 용어·예제·흐름에 맞춘다. 주제를 가르치기 전에 해당 페이지를 다시 읽어 최신 내용을 확인한다.
 
-- [ Spring Framework ]: Framework → DI → Spring Bean 등록 방법 → SpringBoot → 스프링 AOP → Spring 시각화 → Spring MVC pt.1 → Spring MVC pt.2 → Spring & MyBatis → Spring Transaction
+- [ Spring Framework ]: Framework → DI → Spring Bean 등록 방법 → SpringBoot → 스프링 AOP → Spring 시각화 → Spring MVC pt.1 → Spring MVC pt.2 → Spring & MyBatis → Spring Transaction → Interceptor → REST API
 
 ## 강의 샘플 코드 (`SampleDemo/`)
 
@@ -54,6 +54,7 @@
 | `FW_04_aop_sol` | AOP | `LoggingAspect`, `PointcutTestBean`, `@AuditLog`, Advice 5종, `@Async`/`@Cacheable`, 내부 호출 한계 |
 | `FW_05_mvc_basic_sol` | MVC pt.1, pt.2 | `SimpleController`, JSP 설정, `MvcExceptionHandler`, 업로드, `@WebMvcTest` 테스트 |
 | `FW_07_mybatis_sol` | MyBatis, Transaction | `member.xml`/`address.xml`, `@MapperScan`, 동적 SQL·페이징, `@Transactional` 전파 테스트, Resilience |
+| (없음) | Interceptor, REST API | 샘플 zip이 아직 없다(FW_06으로 추정). 교안 Notion 페이지의 예제·TODO 번호를 기준으로 가르친다 |
 
 샘플 공통 환경: Boot **4.1.0**, Java 21, 패키지 `com.ssafy.live`, DB `ssafylive`(계정 ssafy/ssafy), 스키마 스크립트 `src/main/resources/scripts/ssafy_hrm.txt`.
 Boot 4 의존성 이름: `spring-boot-starter-webmvc-test`(@WebMvcTest), `spring-boot-starter-aspectj`, `mybatis-spring-boot-starter` 4.0.1, JSP는 `tomcat-embed-jasper` + JSTL(`jakarta.servlet.jsp.jstl-api`, `org.glassfish.web:jakarta.servlet.jsp.jstl`).

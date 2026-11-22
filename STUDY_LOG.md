@@ -849,6 +849,6 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### 📌 다음 세션 시작점
 
-**맛집 노트 M1~M5 전체 완료 ✅ (2026-11-22)**. 전체 테스트 24개(23 통과, 1 Skipped = M4 롤백 실험용 `@Disabled`).
+**맛집 노트 M1~M5 전체 완료 ✅ (2026-11-22)** → (2026-11-22) 교육생 결정으로 **M6 Interceptor, M7 REST API 추가** (PLAN.md 참고). 다음 세션: M6 시작 — 튜터가 Notion [Interceptor] 교안을 먼저 설명(M5부터의 방식) → 확인 질문 → `LoginCheckInterceptor` 요구사항. 전체 테스트 24개(23 통과, 1 Skipped = M4 롤백 실험용 `@Disabled`).
 - 선택 과제(원하면): ① M2·M3에서 미룬 `@MybatisTest` + `@Mapper` 실험 ② 로그인 검사 5곳을 `HandlerInterceptor`로 모으기(`WebConfig.addInterceptors`) ③ 수정 폼·수정 저장의 `catch (ForbiddenException)` 정리(Advice로 일원화) ④ 고아 사진 파일 정리(수정·삭제 시 옛 파일 삭제) ⑤ 셀프 체크 다시 풀어 보기(M4·M5)
 - 환경 메모: `spring.profiles.active=local`(업로드는 `~/matzip-uploads`), 명령줄 Maven은 `JAVA_HOME=C:/Users/woook/.jdks/ms-25.0.5.0.2`
