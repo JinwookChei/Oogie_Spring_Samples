@@ -165,7 +165,7 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
-### M6. Interceptor 🔍 · 약 1시간 (시간 빠듯 → 핵심만)
+### M6. Interceptor 🔍 · 약 1시간 (시간 빠듯 → 핵심만) — ⏸️ 보류 (2026-11-22, 개념 설명까지 완료)
 교안: Interceptor (Notion) · 샘플: 없음 (교안 TODO 06·07 기준)
 
 - [ ] 🔍 `LoginCheckInterceptor implements HandlerInterceptor`: `preHandle`에서 세션 `loginUser` 확인 → 없으면 `sendRedirect` + `return false`
@@ -225,3 +225,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-22 | **M5 완료 — 맛집 노트 M1~M5 전체 완료** | M5부터 튜터가 교안을 먼저 설명. 5-1 `ImageStorage` DI(빈 2개 `NoUnique` → `@Profile` → 0개 `NoSuch` 실험, `ImageStorageTest`), 5-2 사진 업로드(multipart 설정, `enctype`, `MultipartFile`, `WebConfig.addResourceHandlers`, 수정 시 DB 원본 이름 유지로 M3 `image_name` null 버그 해결, `InvalidImageException`), 5-3 `MvcExceptionHandler` 403/500 + `error/404.jsp`, 5-4 `ReviewControllerTest`(`@WebMvcTest`) 2개. 전체 테스트 24개(1 Skipped). 셀프 체크는 튜터 설명. Notion 업로드. 남은 선택: `@MybatisTest`/`@Mapper` 실험, Interceptor 구현, 수정 폼·저장의 Forbidden catch 정리 |
 | 2026-11-22 | 계획 추가 | Notion `[ Spring Framework ]`에 Interceptor·REST API 교안이 추가됨 → 교육생 결정으로 **M6 Interceptor**, **M7 REST API** 추가, 범위 밖 목록 조정, CLAUDE.md 교안 순서 갱신 (샘플 zip 없음) |
 | 2026-11-22 | 계획 축소 | 교육생 시간 빠듯 → M6 약 1시간(Interceptor 등록·로그인 검사 제거만), M7 약 2시간(상세·작성 API + ProblemDetail 404 + jsonPath 테스트만, 나머지는 👀 설명) |
+| 2026-11-22 | M6 보류 | Interceptor 개념(검문소 비유, Filter·AOP·ControllerAdvice와 위치 비교) 설명 후 교육생 결정으로 구현은 넘어감. 작성 중이던 `LoginCheckInterceptor`는 패턴이 어느 주소에도 안 걸려 동작 영향 없음. **다음: M7 REST API** |

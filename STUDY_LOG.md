@@ -852,3 +852,69 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 **맛집 노트 M1~M5 전체 완료 ✅ (2026-11-22)** → (2026-11-22) 교육생 결정으로 **M6 Interceptor, M7 REST API 추가** (PLAN.md 참고). 다음 세션: M6 시작 — 튜터가 Notion [Interceptor] 교안을 먼저 설명(M5부터의 방식) → 확인 질문 → `LoginCheckInterceptor` 요구사항. 전체 테스트 24개(23 통과, 1 Skipped = M4 롤백 실험용 `@Disabled`).
 - 선택 과제(원하면): ① M2·M3에서 미룬 `@MybatisTest` + `@Mapper` 실험 ② 로그인 검사 5곳을 `HandlerInterceptor`로 모으기(`WebConfig.addInterceptors`) ③ 수정 폼·수정 저장의 `catch (ForbiddenException)` 정리(Advice로 일원화) ④ 고아 사진 파일 정리(수정·삭제 시 옛 파일 삭제) ⑤ 셀프 체크 다시 풀어 보기(M4·M5)
 - 환경 메모: `spring.profiles.active=local`(업로드는 `~/matzip-uploads`), 명령줄 Maven은 `JAVA_HOME=C:/Users/woook/.jdks/ms-25.0.5.0.2`
+
+---
+
+## M6. Interceptor — ⏸️ 보류 (2026-11-22, 교육생 결정으로 넘어감)
+
+### ✅ 한 일
+
+### 📚 배운 개념
+
+### 🙋 내 답변과 피드백
+
+| 질문 | 내 답 | 피드백 |
+|---|---|---|
+
+### 🛠️ 트러블슈팅
+
+### ❓ 내가 한 질문
+
+- **(2026-11-22) Interceptor가 뭔지부터 설명해 줄래?**
+  → "Controller 앞에 서 있는 **검문소**". DispatcherServlet이 요청에 맞는 Controller 메서드를 찾은 뒤, **부르기 직전**(`preHandle`)과 끝난 뒤(`postHandle`·`afterCompletion`)에 먼저 들르는 Spring 객체. 통과(`true`)면 Controller로, 막으면(`false`) Controller는 실행조차 안 됨. 왜 필요? 지금 Controller 5곳에 같은 "로그인 했나?" 코드가 복사돼 있음(횡단 관심사) → 검문소 하나에 모으고 어느 주소에 세울지(`addPathPatterns`)만 정하면 됨. 비교: Servlet Filter(같은 아이디어, 하지만 Spring 바깥·DispatcherServlet 앞) / AOP(빈 메서드 단위, HTTP 모름) / `@ControllerAdvice`(Controller가 **던진 예외** 처리 = 나간 뒤) vs Interceptor(Controller **들어가기 전** 검사). 등록은 `WebConfig.addInterceptors`
+- **(2026-11-22) Interceptor도 AOP 느낌인가?**
+  → **생각(목적)은 같다, 동작 방식은 다르다.** 공통: 횡단 관심사를 한 곳에 모으고 대상 코드는 손대지 않음 = AOP의 "관점" 아이디어(교안 AOP 1장 호텔 팻말 비유). 차이: Spring AOP는 **프록시**가 빈 메서드 호출을 가로챔(Pointcut = 메서드 시그니처, HTTP 모름) / Interceptor는 프록시 없이 **DispatcherServlet이 직접** 등록된 목록을 순서대로 호출(HandlerExecutionChain, 대상 = URL 패턴, request·response·handler 사용). 그래서 Interceptor는 Controller 앞에만, AOP는 아무 빈에나. `afterCompletion`은 `@After`, `preHandle`의 false는 `@Before`에서 예외로 막는 것과 비슷
+
+### ⏭️ 남은 일
+
+- [ ] 6-1 🔍 (2026-11-22 1차 리뷰, 컴파일 OK) ✅ `@Component` + `implements HandlerInterceptor`, `preHandle`만, jakarta import, `getSession(false)`, `getContextPath()` + redirect + `return false`. 🔴 `session == null`만 검사 → 로그아웃 후에도 JSP가 기본으로 세션을 만들어서(`<%@ page session="true"%>` 기본값) **거의 항상 통과** → `loginUser` 속성까지 확인 / 🔴 `/Member/login`(대문자 M) → URL은 대소문자 구분 → 404 / 💅 주석 처리된 `return` 줄 삭제. (참고: WebConfig `addPathPatterns("/review/..")`는 Pointcut의 `..` 문법이라 ANT 패턴에선 글자 그대로 → 아무 주소에도 안 걸림) `LoginCheckInterceptor`(`preHandle`: 세션 `loginUser` 없으면 `sendRedirect(contextPath + "/member/login")` + `return false`) ← 교안 설명 + 확인 Q 1개 + 요구사항 제시 (2026-11-22, 교안 [Interceptor] 1~6·8장 확인)
+- [ ] 6-2 🔍 `WebConfig.addInterceptors` 등록 + `addPathPatterns("/review/write", "/review/*/edit", "/review/*/delete")`
+- [ ] 6-3 🔍 `ReviewController` 5곳의 `if (loginUser == null)` 블록 삭제 (`loginUser`를 꺼내는 줄은 mno 때문에 유지) → 전체 테스트 + 브라우저 확인
+- [ ] 셀프 체크: `preHandle`이 false를 반환하면 무엇을 직접 해 줘야 할까?
+- [ ] 완료 기준: Controller에 로그인 검사 코드 없이 비로그인 작성·수정·삭제 → 로그인 화면, 목록·상세는 그대로, 전체 테스트 통과
+
+### 📌 다음 세션 시작점
+
+**M6 보류 (2026-11-22)**: 교육생이 "Interceptor 파트는 넘어가겠다"고 결정. 개념 설명(검문소 비유, AOP와 비교)까지 완료, 구현은 1차 리뷰에서 멈춤.
+- 현재 코드 상태: `config/LoginCheckInterceptor`(🔴 `session == null`만 검사, `/Member/login` 대문자) + `WebConfig.addInterceptors("/review/..")`(어느 주소에도 안 걸림) → **실제로는 아무것도 막지 않아 앱 동작에 영향 없음**. Controller 5곳의 로그인 검사는 그대로 동작. 전체 테스트 24개(1 Skipped) 통과 확인
+- (2026-11-22) **교육생 요청으로 되돌림**: `LoginCheckInterceptor.java` 삭제, `WebConfig` M5 상태로 복구(`git checkout`), 컴파일 OK
+- 다시 할 때: ① `loginUser` 속성까지 검사 ② `/member/login` 소문자 ③ 패턴 `/review/write`, `/review/*/edit`, `/review/*/delete` ④ Controller 5곳 정리
+
+---
+
+## M7. REST API — 🔄 진행 중 (2026-11-22 시작, 시간 빠듯 → 핵심만 약 2시간)
+
+### ✅ 한 일
+
+### 📚 배운 개념
+
+### 🙋 내 답변과 피드백
+
+| 질문 | 내 답 | 피드백 |
+|---|---|---|
+
+### 🛠️ 트러블슈팅
+
+### ❓ 내가 한 질문
+
+### ⏭️ 남은 일
+
+- [ ] 7-1 🔍 `restcontroller/ReviewRestController`(`@RestController`, `/api/reviews`): `GET /{rno}` → `ResponseEntity.ok(review)`, `POST`(`@RequestBody Review`, 세션 `loginUser` 없으면 401) → 201 Created ← 교안 [REST API] 7·9·11·13·14·16장 설명 + 확인 Q + 명세 제시 (2026-11-22)
+- [ ] 7-2 🔍 `config/RestExceptionHandler`(`@RestControllerAdvice(basePackageClasses = ReviewRestController.class)`): `IllegalArgumentException` → 404 `ProblemDetail`, `Exception` → 500(고정 문구)
+- [ ] 7-3 🔍 `ReviewRestControllerTest`(`@WebMvcTest`): 상세 200 + `jsonPath("$.title")`, 없는 번호 404 + `jsonPath("$.status")`
+- [ ] 셀프 체크: 화면용 `@ControllerAdvice`와 API용 `@RestControllerAdvice`를 왜 나눌까?
+- [ ] 완료 기준: `/api/reviews`로 JSON 조회·작성, 없는 리뷰는 ProblemDetail 404, jsonPath 테스트 통과
+
+### 📌 다음 세션 시작점
+
+**M7 진행 중**. 확인 Q 답 → 7-1 작성 → 리뷰.
