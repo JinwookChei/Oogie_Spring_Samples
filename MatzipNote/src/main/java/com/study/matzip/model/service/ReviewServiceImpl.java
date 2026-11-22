@@ -1,13 +1,16 @@
 package com.study.matzip.model.service;
 
+import java.io.UncheckedIOException;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.study.matzip.exception.ForbiddenException;
 import com.study.matzip.model.dao.ReviewDao;
 import com.study.matzip.model.dto.Review;
 import com.study.matzip.model.dto.ReviewSearch;
+import com.study.matzip.model.storage.ImageStorage;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +21,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ReviewServiceImpl implements ReviewService {
 
 	private final ReviewDao reviewDao;
-
+	private final ImageStorage imageStorage;
+	
 	@Override
 	public List<Review> searchReview(ReviewSearch reviewSearch) {
 		return reviewDao.search(reviewSearch);
@@ -34,7 +38,9 @@ public class ReviewServiceImpl implements ReviewService {
 	}
 	
 	@Override
-	public int writeReview(Review review) {
+	public int writeReview(Review review, MultipartFile image) {
+		String imageName = imageStorage.save(image);
+		review.setImageName(imageName);
 		reviewDao.insert(review);
 		return review.getRno();
 	}
@@ -46,8 +52,15 @@ public class ReviewServiceImpl implements ReviewService {
 	}
 	
 	@Override
-	public void updateReview(int mno, Review review) {
-		checkReviewMno(review.getRno(), mno);
+	public void updateReview(int mno, Review review, MultipartFile image) {
+		// 작성자 검사용으로 조회한 DB 원본을 버리지 않고 받아 둔다 (원래 사진 이름이 들어 있음)
+		Review original = checkReviewMno(review.getRno(), mno);
+
+		// 새 사진이 없으면 save()가 null → 원래 사진 유지 / 있으면 새 저장명으로 교체
+		// (폼에서 hidden으로 원래 이름을 받지 않는다: 사용자가 바꿔서 남의 파일 이름을 넣을 수 있음)
+		String newImageName = imageStorage.save(image);
+		review.setImageName(newImageName != null ? newImageName : original.getImageName());
+
 		reviewDao.update(review);
 	}
 

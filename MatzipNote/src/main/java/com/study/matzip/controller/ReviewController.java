@@ -1,5 +1,6 @@
 package com.study.matzip.controller;
 
+import java.io.UncheckedIOException;
 import java.util.List;
 
 import org.springframework.stereotype.Controller;
@@ -9,9 +10,12 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.study.matzip.exception.ForbiddenException;
+import com.study.matzip.exception.InvalidImageException;
 import com.study.matzip.model.dto.Member;
 import com.study.matzip.model.dto.Review;
 import com.study.matzip.model.dto.ReviewSearch;
@@ -64,14 +68,31 @@ public class ReviewController {
 	}
 	
 	@PostMapping("/write")
-	String writeReview(Review review, HttpSession session, RedirectAttributes redirectAttr){
+	String writeReview(
+			Review review, 
+			@RequestParam(required = false) MultipartFile image,
+			HttpSession session,
+			RedirectAttributes redirectAttr){
 		Member loginUser = (Member) session.getAttribute("loginUser");
 		if(loginUser == null) {
 			return "redirect:/member/login";
 		}
 		
 		review.setMno(loginUser.getMno());
-		int rno = reviewService.writeReview(review);	
+		int rno; // 초기값을 넣지 않는다 → catch에서 return을 빠뜨리면 컴파일러가 잡아 준다 (확정 대입)
+		try {
+			rno = reviewService.writeReview(review, image);
+		} catch (UncheckedIOException e) {
+			// 디스크 저장 실패: 메시지(저장명 등)는 내부 정보 → 서버 로그에만, 사용자에겐 일반 문구
+			log.error("리뷰 사진 저장 실패", e);
+			redirectAttr.addFlashAttribute("msg", "사진 저장 중 오류가 발생했습니다. 다시 시도해 주세요.");
+			return "redirect:/review/write";
+		} catch (InvalidImageException e) {
+			// 이미지가 아닌 파일: LocalImageStorage가 사용자용 문구를 넣어 두었으므로 그대로 보여 준다
+			redirectAttr.addFlashAttribute("msg", e.getMessage());
+			return "redirect:/review/write"; // flash는 redirect일 때만 다음 요청으로 전달된다
+		}
+			
 		redirectAttr.addFlashAttribute("msg", "정상적으로 리뷰가 등록 되었습니다.");
 		return "redirect:/review/"+rno;
 	}
@@ -121,7 +142,12 @@ public class ReviewController {
 	}
 
 	@PostMapping("/{rno}/edit")
-	String editReview(@PathVariable int rno, Review review, HttpSession session, RedirectAttributes redAttr) {
+	String editReview(
+			@PathVariable int rno,
+			Review review,
+			@RequestParam(required = false) MultipartFile image,
+			HttpSession session,
+			RedirectAttributes redAttr) {
 		Member loginUser = (Member)session.getAttribute("loginUser");
 		if(loginUser == null) {
 			return "redirect:/member/login";
@@ -129,8 +155,18 @@ public class ReviewController {
 
 		review.setRno(rno);
 		try {
-			reviewService.updateReview(loginUser.getMno(), review);
+			reviewService.updateReview(loginUser.getMno(), review, image);
+		} catch (InvalidImageException e) {
+			// ⚠️ 하위 타입을 먼저 잡아야 한다 (아래 IllegalArgumentException보다 위에 있어야 함)
+			// 이미지가 아닌 파일 → 다시 수정 폼으로
+			redAttr.addFlashAttribute("msg", e.getMessage());
+			return "redirect:/review/{rno}/edit";
+		} catch (UncheckedIOException e) {
+			log.error("리뷰 사진 저장 실패 (수정)", e);
+			redAttr.addFlashAttribute("msg", "사진 저장 중 오류가 발생했습니다. 다시 시도해 주세요.");
+			return "redirect:/review/{rno}/edit";
 		} catch (IllegalArgumentException e) {
+			// 찾을 수 없는 리뷰 → 목록으로
 			redAttr.addFlashAttribute("msg", e.getMessage());
 			return "redirect:/review/list";
 		} catch (ForbiddenException e) {

@@ -58,9 +58,7 @@ public class MemberServiceImpl implements MemberService {
 	@Transactional
 	public void deleteAccount(int mno) {
 		int delReviewCnt = reviewDao.deleteByMno(mno);
-		// TODO: 4-3 후 삭제 (4-2 실패 재현용: 리뷰 삭제와 회원 삭제 사이에서 항상 예외)
 		int delMemberCnt = memberDao.delete(mno);
-		
 		log.info("회원 탈퇴 완료: 회원번호={} 삭제된 리뷰 수={}", mno, delReviewCnt);
 	}
 }

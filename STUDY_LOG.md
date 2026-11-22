@@ -644,7 +644,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
     - [x] 단계 C: 수정 `GET·POST /review/{rno}/edit` + `edit.jsp` ✅ (2026-11-22, 브라우저 5가지 통과)
       - (2026-11-22) ③ POST 1차 리뷰: 잘함 = 로그인 검사·`setRno` 위치·예외별 redirect, `redirect:/review/{rno}`(경로 변수 자동 치환). 고칠 것 = 🔴 try 뒤 `updateReview(rno, review)` 두 번째 호출(mno 자리에 rno → rno=mno일 땐 우연히 통과, 아니면 Forbidden 미처리 500) / 🟡 "수정 완료" flash 없음 / 💅 안 쓰는 `Model`, `eidtReview` 오타, TODO 주석. ⑤ 수정 링크 통과
       - (2026-11-22) 교육생 요청으로 튜터가 수정: 두 번째 `updateReview` 삭제 → "수정 완료" flash, `Model` 제거, `editReview` 이름, TODO 삭제 (변수명 통일은 안 함). 컴파일 OK, 브라우저 5가지 확인 남음(리뷰 2 수정 포함)
-- [ ] (M5로 미룸) 수정 시 `image_name`이 `null`로 덮어써지는 문제 → 사진 업로드 만들 때 함께 해결
+- [x] (M5로 미룸) 수정 시 `image_name`이 `null`로 덮어써지는 문제 → ✅ M5 5-2c에서 해결 (2026-11-22)
 - [x] `@RequestParam` / `@ModelAttribute` / `@PathVariable` 바인딩 ✅ (로그인·검색·상세/수정/삭제에서 사용)
 - [x] 등록·수정·삭제 후 PRG + `addFlashAttribute` ✅ (2026-11-22)
 - [x] 작성자 본인 검사를 Service에 → 커스텀 예외 ✅ (2026-11-19)
@@ -769,3 +769,66 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 2. 개념 질문부터: "탈퇴 중 리뷰는 지워졌는데 회원 삭제에서 예외가 나면 DB는 어떤 상태?" → 4-1 요구사항 제시
 3. 현재 DB(새 PC): 회원 mno 1(`kim@matzip.com`)·5·6, 리뷰 rno 1·2(mno=1). 탈퇴 실험은 **테스트 코드 안에서 회원·리뷰를 만들어** 진행 (실데이터 보호)
 - 환경 메모(새 PC): STS `C:\Project\ssafy\IDE\sts-5.0.1.RELEASE`, 워크스페이스는 `C:\Project\Oogie_Spring_Samples`로 열기. 명령줄 Maven은 `JAVA_HOME=C:\Users\woook\.jdks\ms-25.0.5.0.2` 필요. 앱 DB 계정은 `root`(CLAUDE.md의 ssafy 아님)
+
+---
+
+## M5. 마무리 — 🔄 진행 중 (2026-11-22 시작)
+
+### ✅ 한 일
+
+- 5-2a 리뷰 작성 시 사진 업로드: multipart 크기 설정, `write.jsp` `enctype` + `name="image"`, Controller `MultipartFile` 파라미터 + 예외별 redirect·flash `msg`, Service `save` → `setImageName` → insert
+- 5-2b `WebConfig.addResourceHandlers("/upload/**")` + detail.jsp `<img>` → 사진 표시
+- 5-2c 수정 시 사진 유지/교체(Service가 DB 원본 이름 사용), `InvalidImageException`으로 예외 의미 분리, edit.jsp 현재 사진 + 파일 입력
+- (M4 정리) `MemberServiceImpl.deleteAccount`의 `// TODO: 4-3 후 삭제` 주석 삭제 (교육생)
+- 5-1 `ImageStorage` + `LocalImageStorage`(UUID 저장명, 확장자 화이트리스트, `UncheckedIOException`) + `FakeImageStorage` → 빈 충돌(`NoUniqueBeanDefinitionException`) 재현 → `@Profile("local"/"fake")` + `spring.profiles.active` → `ImageStorageTest` 4개 🟢, 빈 0개(`NoSuchBeanDefinitionException`) 실험
+
+### 📚 배운 개념
+
+- **DI 진화 (교안 DI 4장)**: Step 1 직접 `new`(구체 클래스) → Step 2 인터페이스 선언 + 여전히 `new`(DIP 절반, OCP 위반) → Step 3 생성자로 주입 + 팩토리 → Spring 컨테이너가 빈 생성(싱글톤)·주입 = DI, 제어권 이동 = IoC. 생성자 주입이 권장(불변·누락 방지·테스트에서 `new X(new Fake())` 가능)
+- **같은 타입 빈 2개**: `NoUniqueBeanDefinitionException` / 0개: `NoSuchBeanDefinitionException`. 해결: `@Primary`(구현체에, 기본값), `@Qualifier("이름")`(주입받는 쪽, 우선), `@Profile("이름")`(그 프로파일일 때만 빈 등록 → `spring.profiles.active`, 테스트는 `@ActiveProfiles`). `@Autowired` 선택 순서: 타입 → Qualifier → Primary → 이름
+- **MultipartFile (교안 MVC pt.2 Part 4)**: `isEmpty`·`getOriginalFilename`·`getContentType`·`getSize`·`transferTo(File)`. 저장명은 UUID(파일명 충돌·경로 조작 방지), 확장자는 Spring `StringUtils.getFilenameExtension`, 폴더 없으면 `Files.createDirectories`, `transferTo`는 **절대 경로**
+
+### 🙋 내 답변과 피드백
+
+| 질문 | 내 답 | 피드백 |
+|---|---|---|
+| 5-1 Q1. `ReviewServiceImpl`에서 `new LocalImageStorage()`로 직접 만들면 Fake로 바꿀 때 어디를 고치나? | 서비스 코드를 고쳐야 함, Step 2 문제 | ✅ 정답. 인터페이스로 선언해도 `new`가 남아 있으면 DIP 절반 → 교체 때마다 Service 수정(OCP 위반) |
+| 5-1 Q2. Local·Fake 둘 다 `@Component`면? 설정만으로 해결하려면? | 모호하다는 에러가 발생 | 🟡 방향 정답. 예외 이름 = `NoUniqueBeanDefinitionException`("expected single matching bean but found 2"). 두 번째 질문(설정만으로)은 답 없음 → **`@Profile`** (`@Primary`·`@Qualifier`는 코드에 붙여 고정) |
+| 5-1 단계 B. `@Profile` 설계: ①`!test`/`test` vs ②`local`/`fake` + properties | ② properties 한 줄로 바꾸는 게 확인하기 쉬워서 | ✅ 완료 기준("Profile을 바꾸면 Fake로")을 보이기 좋은 선택. 함정: active를 지우거나 오타 → 빈 0개 → `NoSuchBeanDefinitionException` (실험으로 확인할 것) |
+| 5-2 Q1. `enctype` 빠뜨리면 `MultipartFile`에는? | 모르겠어 | 설명: 브라우저가 urlencoded로 **파일 이름 글자만** 보냄 → multipart 요청이 아니라 Spring이 파일 파트를 못 만듦 → `required=false`면 **null**(에러 없이 사진 없는 리뷰로 저장 = 조용한 실패), `required=true`면 `MultipartException`("Current request is not a multipart request") 류 400 |
+| 5-2 Q2. 사진 저장을 Controller가 아니라 Service에서? | 모르겠어 | 설명: "리뷰를 쓰면 사진도 저장하고 그 이름을 리뷰에 넣는다" = 업무 규칙 → Service. ① 작성·수정·(나중에) REST API 등 입구가 늘어도 한 곳 ② Controller는 HTTP(파라미터 받기·redirect)만 ③ 사진+DB를 한 업무 단위로(트랜잭션 경계 = Service) ④ Service 테스트에서 Fake로 검증 가능 |
+| 5-2 Q3. 사진 저장 후 insert 실패로 rollback되면 파일은? | 사진 파일은 rollback 되지 않음 | ✅ 정답. rollback은 DB만 되돌림 → 디스크에 **고아 파일**이 남음. 대책(👀): 실패 시 catch에서 파일 삭제, 커밋 후 저장(`TransactionSynchronization`), 주기적 정리 배치. 반대로 파일 저장 실패(`UncheckedIOException`)는 RuntimeException이라 `@Transactional`이면 DB도 rollback |
+
+### 🛠️ 트러블슈팅
+
+- **(2026-11-22) 업로드 후 500: `Unresolved compilation problem: The local variable rno may not have been initialized`**
+  - 원인: `int rno;` 선언 → try 안에서만 대입 → catch 2개가 **비어 있어서** 예외가 나면 rno에 값이 없는 채로 아래 `"redirect:/review/" + rno`까지 내려감. Java의 **확정 대입(definite assignment)** 규칙 위반 = 컴파일 에러
+  - 왜 실행은 됐나: STS(Eclipse 컴파일러)는 에러가 있어도 클래스를 만들고, 그 줄이 실행될 때 `java.lang.Error`를 던짐. Maven(`mvnw`)이면 빌드 자체가 실패. → STS의 빨간 X(Problems 탭)를 무시하고 실행하지 않기
+  - 해결 방향: catch 안에서 **바로 return**(flash msg + 작성 폼으로 redirect) — M3 삭제의 "catch 뒤 계속 실행" 실수와 같은 패턴. 성공 코드는 try 안 또는 catch가 모두 return한 뒤
+
+### ❓ 내가 한 질문
+
+- **(2026-11-22) 저장 폴더가 없으면 만드는 방법?**
+  → `java.nio.file.Files.createDirectories(Path)`: 중간 폴더까지 전부 만들고, **이미 있으면 아무 일도 안 함**(예외 없음). `createDirectory`(s 없음)는 부모가 없거나 이미 있으면 예외 → 쓰지 않기. `Path`는 `Path.of(문자열)`(또는 `Paths.get`)로 만들고, 파일 경로는 `폴더Path.resolve(저장명)` → `transferTo(Path)`도 가능. checked `IOException`을 던지므로 try-catch. 호출 시점: 저장할 때마다(간단) 또는 빈 생성 직후 한 번 `@PostConstruct`(DI 교안 생명주기). 옛 방식 `new File(경로).mkdirs()`는 실패해도 예외 없이 `false`만 반환
+- **(2026-11-22) `@Value`는 어떻게 쓰나?**
+  → `org.springframework.beans.factory.annotation.Value`(Lombok `@Value`와 다름 ⚠️). `@Value("${키}")` = properties 값을 빈에 넣음(`${}`가 없으면 글자 그대로). 기본값 `${키:기본값}`, 키가 없고 기본값도 없으면 앱 시작 실패(`Could not resolve placeholder`). 타입은 자동 변환(int, List 등 — FW_03 `service.manager.age`, `service.roles`). 위치: ① 필드(샘플 FW_05 `SimpleService`·`MvcConfigurer`, `final` 아님) ② 생성자 파라미터. ⚠️ `@RequiredArgsConstructor` + `final` 필드에 `@Value`를 붙이면 Lombok이 만든 생성자 파라미터로 **복사되지 않아** 주입 실패 → 필드 방식(비final) 또는 생성자를 직접 작성. 빈(Spring이 만든 객체)에서만 동작, `new`로 만든 객체에선 null
+- **(2026-11-22) `@Value("#{app.upload.path}")`로 쓰는 것 아닌가?**
+  → ❌ `#{ }`는 **SpEL**(Spring Expression Language, 식을 계산), `${ }`는 **프로퍼티 자리표시자**(properties 값 읽기). `#{app.upload.path}`는 "`app`이라는 이름의 빈/변수의 upload.path 속성"으로 해석 → 앱 시작 시 `SpelEvaluationException: EL1008E: Property or field 'app' cannot be found` 류 에러. properties 값은 `${app.upload.path}`. (둘을 섞으면 `#{'${app.upload.path}'.trim()}`처럼 쓸 수 있지만 지금은 필요 없음.) JSP의 `${ }`(EL)와도 다른 문법. 💅 필드는 `private`
+- **(2026-11-22) `writeReview(Review review)`의 `review`에 업로드한 사진이 자동으로 안 들어가나?**
+  → **지금 구조로는 안 들어간다.** `@ModelAttribute` 바인딩은 **파라미터 이름 = DTO의 setter 이름**으로 짝지음(파일 파트도 대상). `Review`에는 `String imageName`(저장명)만 있고 `MultipartFile` 필드가 없음 → `name="image"` 파트는 짝이 없어 무시됨. (`name="imageName"`으로 보내면 `MultipartFile`→`String` 타입 불일치 → 바인딩 에러) `Review`에 `MultipartFile image` 필드를 추가하면 자동 바인딩은 **가능**하지만 비추천: `Review`는 DB 한 행을 담는 DTO(MyBatis·세션·JSP까지 감)인데 웹 업로드 전용 객체가 섞임. 실무에선 폼 전용 DTO(예: `ReviewForm`)를 따로 만들기도 함. 이번엔 **Controller 파라미터로 따로 받는** 방식(교안 23장과 같음)
+
+### ⏭️ 남은 일
+
+- (2026-11-22) **교육생 요청: M5부터는 교안을 미리 보지 않았으므로 튜터가 교안 내용을 먼저 설명한 뒤 질문** → 5-1 교안 설명(DI Step 1~3 → Spring, 같은 타입 빈 2개, `@Primary`·`@Qualifier`·`@Profile`) 후 확인 질문으로 다시 진행
+- [x] 5-1 🔍 `ImageStorage` 인터페이스로 DI 체감 ✅ (2026-11-22, ⑤ 실험: properties 주석 처리 → `NoSuchBeanDefinitionException`(빈 0개) 확인 후 `local`로 복구) — **단계 A ✅ (2026-11-22)**: `ReviewServiceImpl`에 `private final ImageStorage imageStorage` 추가 → `ReviewDaoTest` 7개 전부 Error, `NoUniqueBeanDefinitionException: ... expected single matching bean but found 2: fakeImageStorage,localImageStorage` (빈 이름 = 클래스 이름 첫 글자 소문자). 원인 사슬: reviewController(생성자 파라미터 0) → reviewServiceImpl(파라미터 1) → ImageStorage 2개. ReviewDaoTest는 Service를 안 쓰는데도 실패 = `@SpringBootTest`는 컨텍스트 전체를 띄우고 싱글톤 빈을 시작할 때 미리(eager) 만든다. 단계 B(`@Profile` 설계) 질문 제시 → 교육생이 방법 ② 선택, 요구사항 제시: Local `@Profile("local")`·Fake `@Profile("fake")`, `spring.profiles.active=local`, 프로파일 로그 확인, `ImageStorageTest`(`@ActiveProfiles("fake")` + `assertInstanceOf` + `MockMultipartFile`로 save 검증), 0개 실험. → (2026-11-22) 교육생이 ①`@Profile("local")`/`@Profile("fake")` ②`spring.profiles.active=local` 작성 ✅. **교육생 요청으로 튜터가 `ImageStorageTest` 작성**(Fake 주입 확인 `assertInstanceOf`, `fake-cat.png`, 빈 파일·null → null) → 4개 🟢. 같은 실행에서 ImageStorageTest는 `profile is active: "fake"`, ReviewDaoTest는 `"local"` = `@ActiveProfiles`가 클래스 단위로 properties보다 우선. ReviewDaoTest 7개 🟢(충돌 해결). 남은 것: ⑤ properties를 fake로 바꿔 보기 + 주석 처리 실험(빈 0개 예외) → local로 복구 (2026-11-22 `FakeImageStorage` 1차 통과 ✅: null/empty 가드로 인터페이스 약속 지킴, 저장 안 하고 `"fake-" + 원래 이름`, `@Slf4j` 로그. 🟡 생각거리: `image_name`은 VARCHAR(50) → 원래 이름이 길면 Fake만 "Data too long"(Local은 UUID 36자+확장자라 OK) / Fake는 확장자 검사를 안 해서 Local과 동작이 다름. 💅 로그에 `Fake` 표시) (2026-11-22 `LocalImageStorage.save` 1차 리뷰) ✅ properties `.` 제거, Spring `@Value` import, `private`, null/empty 가드, `StringUtils.getFilenameExtension`, UUID 저장명, `createDirectories`의 반환 Path 활용. 🔴 `path.resolve(finalName);` 반환값 버림(Path는 불변 → 새 Path를 돌려줌) → 38행이 **폴더 경로**에 저장 시도 / 🔴 `transferTo`의 `IOException`이 try 밖 → 컴파일 에러 / 🔴 `return null` → 저장명 반환 / 🟡 `printStackTrace` + `new RuntimeException()`(메시지·원인 없음) → `UncheckedIOException("메시지", e)`, 로그는 SLF4J / 🟡 확장자 없으면 `uuid.null` / 💅 `Path path = null` 밖 선언 대신 try 안에 모두. → **교육생 요청으로 튜터가 수정**: `Path target = dir.resolve(finalName)`, 폴더 생성·resolve·`transferTo`를 한 try에, `UncheckedIOException("이미지 저장 실패: ...", e)`, `return finalName`, 확장자 화이트리스트(png/jpg/jpeg/gif, 소문자 비교, 없으면 `IllegalArgumentException`), `@Slf4j` 저장 로그. 컴파일 OK. (중간 확인) `@Value("${app.upload.path}")` 문법 ✅. 🔴 import가 `lombok.Value`(→ `org.springframework.beans.factory.annotation.Value`, 이대로면 컴파일 에러) / 🔴 properties 값 끝의 `.`(`matzip-uploads.`) 제거 / 💅 `private`. 작성 중: `Files.createDirectories(@Value )` → `Path.of(imagePath)`. (2026-11-22) 교육생 요청으로 단계 A 명세를 진행 상황 체크리스트와 함께 다시 제시 (import·`private` 수정 확인, 남은 것: Local ②~⑤, Fake, ReviewServiceImpl 주입, 충돌 확인) ← 개념 질문 제시 (2026-11-22, 튜터가 교안 [Framework - DI] 4장 Step 1~3·8장, [Spring Bean 등록 방법] 11장 `@Primary`·`@Profile` 확인)
+  - `LocalImageStorage`(디스크 저장, UUID 파일명) / `FakeImageStorage`(저장 안 하고 이름만 반환)
+  - 같은 타입 빈 2개 → `NoUniqueBeanDefinitionException` 확인 → `@Primary` 또는 `@Profile`로 교체
+- [x] 5-2 🔍 ✅ (2026-11-22, 5-2c 브라우저 확인: 사진 없이 수정해도 원래 사진 유지 = M3에서 미룬 버그 해결. 확인 Q(hidden으로 원래 이름?)는 답 없이 넘어가 튜터 설명: hidden 값은 F12로 바꿀 수 있음 → 남의 사진 파일명을 내 리뷰에 연결하거나 엉뚱한 값 저장 가능 → "누구의/무엇의 원본"은 폼이 아니라 DB에서 — M3 작성자 mno와 같은 원칙) — (2026-11-22 5-2a 2차 리뷰) ✅ properties 접두사 수정, 업로드 성공: `~/matzip-uploads/5857157e-...png`(1.1MB → 기본 1MB를 넘었는데 저장됨 = `max-file-size` 설정 효과), catch마다 return → 컴파일 OK. 🔴 catch의 `return "review/list"` = redirect가 아닌 **뷰 이름(forward)** → flash는 redirect 때만 전달되므로 메시지 안 보임 + list.jsp에 필요한 목록 데이터 없음 → `redirect:/review/write` / 🟡 flash 키 `error` → M3에서 통일한 `msg` + write.jsp에 `<c:if>` 표시 / 🟡 `UncheckedIOException` 메시지(`이미지 저장 실패: uuid.png`)는 내부 정보 → 사용자용 문구 + 상세는 log / 💅 `int rno = 0` 초기화는 확정 대입 보호를 끔 → catch가 모두 return하니 `int rno;`로도 충분(또는 try 안으로). → **교육생 요청으로 튜터가 수정**: catch 두 곳 `return "redirect:/review/write"` + flash 키 `msg`, `UncheckedIOException`은 `log.error` + 사용자용 문구, `IllegalArgumentException`은 `e.getMessage()` 그대로, `int rno;`(초기값 제거), write.jsp 상단에 `<c:if test="${not empty msg}">`(빨간색). 컴파일 OK. → **5-2a ✅ (2026-11-22, 교육생 브라우저 확인: `.txt` → 폼 + 메시지, 사진 없이 → NULL, 업로드 → image_name = UUID)**. 5-2b 요구사항 제시(`config/WebConfig implements WebMvcConfigurer` + `addResourceHandlers("/upload/**")` + `Path.of(...).toUri()`, detail.jsp `<c:if>` + `<img>`) → **교육생 요청으로 튜터가 작성**: `WebConfig`(`@Configuration`, `@Value("${app.upload.path}")`, `toUri()` + 끝 `/` 보정, 매핑 로그), detail.jsp 표 아래 `<c:if test="${not empty review.imageName}">` + `<img width=300 alt>`. resultMap에 `image_name → imageName` 이미 있음(M2). 컴파일 OK. → **5-2b ✅ (2026-11-22, 교육생 브라우저 확인: 사진 잘 보임)**. Q1·Q2는 답 없이 넘어가 튜터가 설명: Q1 끝 `/` 없으면 `matzip-uploads` + `abc.png` = `matzip-uploadsabc.png` 같은 엉뚱한 경로(또는 폴더가 아니라 파일로 해석) → 404 / Q2 사진 요청은 ResourceHttpRequestHandler가 직접 응답, Controller·Service를 안 거침 → `execution(* ..service.*.*(..))`에 안 걸려 시간 로그 없음. 5-2c(수정 시 image_name null 덮어쓰기) 설명·요구사항 제시 → **교육생 요청으로 튜터가 작성**: Service `updateReview(mno, review, image)` — `checkReviewMno` 반환값(DB 원본)을 받아 새 저장명이 없으면 원본 `imageName` 유지(SQL은 그대로), 커스텀 예외 `InvalidImageException extends IllegalArgumentException`(LocalImageStorage가 던짐) → edit POST에서 **하위 타입 먼저** catch(→ 수정 폼) / `UncheckedIOException`(→ 수정 폼) / `IllegalArgumentException`(찾을 수 없음 → 목록) / Forbidden, write POST도 `InvalidImageException`으로, edit.jsp `enctype` + 현재 사진 미리보기 + 파일 입력 + msg. 전체 테스트 22개 중 21 통과·1 Skipped. 남은 것: 브라우저 확인 3가지 + 확인 질문(hidden으로 원래 이름 보내면 문제?) 답. (5-2a 1차 리뷰, 컴파일 OK) ✅ `enctype`, `name="image"`(DTO 필드명과 다르게), `accept`, `@RequestParam(required=false) MultipartFile image`, Service 시그니처(인터페이스·구현), save → setImageName → insert(if 없이 null 그대로), insert SQL에 `#{imageName}` 이미 있음. 🔴 properties `max-request-size = 50MB` 접두사 없음 → 모르는 키라 **에러 없이 무시**(기본 10MB 유지) → `spring.servlet.multipart.max-request-size` / 🟡(🌟) 이미지 아닌 파일 → `IllegalArgumentException` 미처리 → 500 화면 / 💅 `=` 앞뒤 공백은 허용되지만 파일 안 다른 줄과 통일. ← 교안 MVC pt.2 Part 4 설명 + 확인 Q 3개(2026-11-22), 5-2a 요구사항 제시(multipart 크기 설정, write.jsp `enctype`·`<input type=file name=image accept>`, Controller `@RequestParam(required=false) MultipartFile image`, Service `writeReview(review, image)`에서 `save` → `setImageName` → insert, 이미지 아닌 파일 → `IllegalArgumentException` 처리, DB·폴더 확인). 리뷰 작성 시 사진 업로드(`MultipartFile`) + `addResourceHandlers`로 화면 표시 + (M3에서 미룸) 수정 시 `image_name` null 덮어쓰기 해결
+- [ ] 5-3 👀 ← 교안 MVC pt.2 Part 3 설명 + 확인 Q + 짧은 가이드 제시 (2026-11-22). `@ControllerAdvice` + `@ExceptionHandler`: 권한 예외 → 403 페이지, 그 외 → 500, `error/404.jsp`
+- [ ] 5-4 👀 `@WebMvcTest` + `MockMvc` + `@MockitoBean`으로 리뷰 Controller 테스트 1~2개
+- [ ] 셀프 체크: `ReviewService`는 `ImageStorage` 구현체가 바뀌어도 왜 코드를 고칠 필요가 없을까? / 404는 왜 `@ControllerAdvice`가 아니라 BasicErrorController가 처리할까?
+- [ ] 완료 기준: 사진 있는 리뷰가 화면에 보이고, `@Profile`을 바꾸면 `FakeImageStorage`로 동작. 남의 리뷰 삭제 시 403 페이지, MockMvc 테스트 통과
+
+### 📌 다음 세션 시작점
+
+**M5 진행 중**. 5-1 완료 ✅ → 5-2 사진 업로드: 교안 MVC pt.2 Part 4 설명(multipart 요청, `enctype`, multipart 설정, `MultipartFile` 파라미터, `addResourceHandlers`) + 확인 질문 제시 → 답 받고 5-2a(작성 시 업로드) 요구사항.

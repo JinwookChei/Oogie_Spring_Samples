@@ -40,6 +40,14 @@
 				</tbody>
 			</table>
 
+			<%-- 사진이 있을 때만 표시 (없으면 src="/upload/" → 깨진 이미지 아이콘) --%>
+			<%-- /upload/** 는 WebConfig.addResourceHandlers가 업로드 폴더로 연결해 준다 --%>
+			<c:if test="${not empty review.imageName}">
+				<div>
+					<img src="${root}/upload/${review.imageName}" alt="${review.title} 사진" width="300">
+				</div>
+			</c:if>
+
 			<c:if test="${review.mno == sessionScope.loginUser.mno}">
 				<form action="${root}/review/${review.rno}/delete" name="delete"
 					method="POST">
