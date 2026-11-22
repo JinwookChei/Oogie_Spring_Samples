@@ -131,13 +131,13 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
-### M4. 트랜잭션 + AOP 🔍 · 2~3시간
+### M4. 트랜잭션 + AOP 🔍 · 2~3시간 — ✅ 완료 (2026-11-22)
 교안: Spring Transaction, 스프링 AOP · 샘플: FW_07 `BasicMemberService.delete`, FW_04 `LoggingAspect`
 
-- [ ] 회원 탈퇴 = 리뷰 전체 삭제 + 회원 삭제. 중간에 예외를 일부러 넣어 **트랜잭션 없이 실패하는 것 재현**
-- [ ] `@Transactional`로 해결하고 테스트로 확인
-- [ ] Service 계층 실행 시간 측정 `@Around` Aspect
-- [ ] M3에서 중복된 로그인 검사를 보며 "한 곳으로 모으는 방법" 토론 (Interceptor는 👀 설명만)
+- [x] 회원 탈퇴 = 리뷰 전체 삭제 + 회원 삭제. 중간에 예외를 일부러 넣어 **트랜잭션 없이 실패하는 것 재현** ✅ (`MemberWithdrawTest`, 리뷰만 지워짐 🔴)
+- [x] `@Transactional`로 해결하고 테스트로 확인 ✅ (같은 테스트 🟢, 실험 테스트는 `@Disabled`로 보존 + 정상 탈퇴 테스트)
+- [x] Service 계층 실행 시간 측정 `@Around` Aspect ✅ (`ExecutionTimeAspect`, try/finally로 예외 호출도 측정)
+- [x] M3에서 중복된 로그인 검사를 보며 "한 곳으로 모으는 방법" 토론 (Interceptor는 👀 설명만) ✅
 
 **셀프 체크**: 같은 클래스 안에서 호출하면 왜 `@Transactional`이 안 먹을까? checked 예외가 나면 롤백될까?
 
@@ -193,3 +193,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-18 | M3 진행 중 | **3-2-③ 리뷰 작성 완료**: 작성자 mno는 세션 `loginUser`에서(hidden 사칭 방지), GET·POST 로그인 검사, insert 후 `getRno()`(반환값은 행 수), PRG(F5 중복 없음), `addFlashAttribute("msg")` 완료 메시지. **다음: 3-2-④ 수정·삭제 + 3-3 작성자 본인 검사 개념 Q부터** |
 | 2026-11-19 | M3 진행 중 | **3-3 작성자 검사 + 3-2-④ 삭제 완료**: `ForbiddenException`, Service private `checkReviewMno`(DB 원본으로 비교), `POST /review/{rno}/delete`(예외별 redirect, flash `msg`), 삭제 버튼 작성자에게만(`<c:if>` EL 문법), 브라우저 4가지(남의 글 차단) 통과. **다음: 단계 C 수정 리뷰부터** (교육생 초안 작성 중, `STUDY_LOG.md` 📌 참고) |
 | 2026-11-22 | **M3 완료** | 데스크탑 이동 점검(JDK·STS Lombok·MySQL·`mvnw test`), 수정 초안 유실 → 단계 C 리뷰 수정 완료(`getReviewForEdit`, `GET·POST /{rno}/edit`, `edit.jsp`, 수정 링크, 🔴 `updateReview` 이중 호출 수정), 브라우저 5가지 통과, `ReviewDaoTest` selectDetail·update·delete·없는 번호 추가(16개 초록), 셀프 체크, Notion 업로드. 미룸: `@MybatisTest`/`@Mapper` 실험, `image_name` null(M5). **다음: M4 트랜잭션 + AOP** |
+| 2026-11-22 | **M4 완료** | 4-1 탈퇴(`deleteByMno`·`delete`·`deleteAccount`, SQL 오타 `DELETE *`·`WHEN` 수정), 4-2 `MemberWithdrawTest`로 리뷰만 지워지는 실패 재현(튜터 수정 후 🔴), 4-3 `@Transactional` 한 줄로 🟢 + 정상 탈퇴 테스트·실험 `@Disabled`, `TransactionInterceptor` 소스 읽기, 4-4 `spring-boot-starter-aspectj` + `ExecutionTimeAspect`(Pointcut 오타로 매칭 0개 → 튜터 수정, try/finally), 4-5 Aspect·Interceptor·Filter 비교, 셀프 체크 2문제 정답, Notion 업로드. 남은 💅: `deleteAccount` TODO 주석. **다음: M5 `ImageStorage` DI** |

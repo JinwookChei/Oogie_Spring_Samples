@@ -668,17 +668,19 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ---
 
-## M4. 트랜잭션 + AOP — 🔄 진행 중 (2026-11-22 시작)
+## M4. 트랜잭션 + AOP — ✅ 완료 (2026-11-22) · [Notion](https://app.notion.com/p/4206412b0acd813daefbec847cc89f06)
 
 ### ✅ 한 일
 
 - 4-1 회원 탈퇴: `ReviewDao.deleteByMno`, `MemberDao.delete`(+XML), `MemberService.deleteAccount`(리뷰 → 회원, `log.info`)
 - 4-2 `MemberWithdrawTest`로 트랜잭션 없는 탈퇴의 실패 재현 (리뷰만 지워짐 🔴)
 - 4-3 `@Transactional` 한 줄로 같은 테스트 🟢 (PLAN 완료 기준 앞부분 달성)
+- 4-5 로그인 검사 중복 → Aspect / Interceptor / Filter 비교 토론 (👀), 셀프 체크 2문제 정답
 - 4-4 `spring-boot-starter-aspectj` + `ExecutionTimeAspect`(`@Around`, try/finally) → Service 메서드마다 실행 시간 로그 (PLAN 완료 기준 뒷부분 달성)
 
 ### 📚 배운 개념
 
+- **횡단 관심사를 어디에 둘까 (4-5)**: Filter(서블릿 단계, Spring 밖, 인코딩·CORS) → **Interceptor**(DispatcherServlet ↔ Controller 사이, URL 기준, request/response 사용 → 로그인 검사에 적합) → **AOP**(빈의 메서드 기준, HTTP와 무관 → 트랜잭션·실행 시간·Service 로깅). "웹 요청 단위로 막는 일 = Interceptor, 비즈니스 메서드 단위로 감싸는 일 = AOP"
 - **XML의 SQL은 컴파일 때 검사되지 않는다**: `DELETE *`, `WHEN` 같은 오타는 쿼리를 처음 실행할 때 `BadSqlGrammarException`으로 드러난다 → DAO·Service 테스트가 필요한 이유
 - **`@Test`만 테스트다**: `@BeforeEach`/`@AfterEach`는 각 테스트의 준비·정리. 정리에는 assert를 넣지 않고, 테스트가 실패해도 실행된다
 - **트랜잭션 실험 테스트에는 `@Transactional`을 붙이지 않는다**: 붙이면 Service가 테스트 트랜잭션에 참여(REQUIRED)하고 rollback은 테스트 끝에 한 번 → 차이가 안 보인다. 대신 진짜 commit + `@AfterEach` 수동 정리 (샘플 FW_07 `MemberServiceTest`와 같은 구조)
@@ -700,6 +702,10 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 | 4-4 Q1. 실행 시간 측정에 `@Around`를 쓰는 이유는? | `@Before`에서 잰 시작 시간을 `@After`로 넘기려면 멤버 변수 같은 저장 공간이 필요 → `@Around`가 적합 | ✅ 정답. 보충: 그 멤버 변수는 실제로 **위험**하다. Aspect는 싱글톤 빈 1개라서 요청(스레드) 여러 개가 같은 필드를 덮어쓴다. `@Around`는 시작 시각을 **지역 변수**로 두므로 호출마다 따로 생긴다 |
 | 4-4 Q2. Service 전체에 쓸 Pointcut 지정자는? | `execution(... service 패키지 ...)` (이유는 안 씀) | ✅ 좋은 선택. 계층(패키지) 단위로 한꺼번에 걸 때 `execution`(교안 지정자 가이드). `@within(Service)`도 정답(패키지가 바뀌어도 유지된다는 장점). 너무 넓게(`com.study..*`) 잡으면 Controller·DAO까지 걸린다 |
 | `execution(* com.study.matzip.model.*.*(..))`는 `MemberServiceImpl.login`에 걸릴까? | 안 걸림. model 바로 아래 클래스만 보니까 | ✅ 정답. 보충: 마지막 `*`는 **메서드 이름**, 그 앞의 `model.*`이 "model 바로 안의 클래스 한 칸" → `model.service.MemberServiceImpl`은 한 칸 더 깊어서 실패. `model..*.*(..)`이면 걸린다 |
+| 4-5 Q1. 로그인 검사를 Aspect로 옮기면 곤란한 점? | 모르겠어 | 설명: ① Aspect는 HTTP를 모른다 → 세션은 `RequestContextHolder`로 우회해서 꺼내야 함 ② 검사 대상(write·delete·edit)과 제외 대상(list·상세)을 메서드 시그니처로 골라야 해서 Pointcut이 지저분해짐(또는 커스텀 애너테이션 필요) ③ 막을 때 Controller 반환형(String 뷰 이름)에 맞춰 `"redirect:..."`를 돌려줘야 해서 Controller 구조에 묶임 |
+| 4-5 Q2. DispatcherServlet이 Controller 직전에 끼어드는 장치와 대상 기준은? | 모르겠어 | 답: **HandlerInterceptor**의 `preHandle`. 기준은 **URL 경로**(`addPathPatterns("/review/write", "/review/*/edit", ...)` / `excludePathPatterns`). `request`·`response`를 받으므로 세션 꺼내기·`sendRedirect`가 자연스럽고, `false`를 반환하면 Controller까지 가지 않는다 |
+| 셀프 체크 Q1. 같은 클래스의 `cleanUp()`이 `this.deleteAccount()`를 부르면 `@Transactional`이 동작할까? | 안 된다, this는 proxy가 아니라서 | ✅ 정답. 보충: proxy는 **바깥에서 들어오는 호출**만 가로챈다. `cleanUp()`까지는 proxy를 거쳐 들어왔지만(트랜잭션 없음) 그 안의 `this`는 진짜 `MemberServiceImpl`이라 `deleteAccount`의 advice가 실행되지 않음 → 리뷰·회원 삭제가 각각 auto-commit. 대책: 다른 빈으로 분리(교안 8장 추천) / `cleanUp()`에 `@Transactional`. 같은 이유로 `ExecutionTimeAspect`도 내부 호출은 시간을 재지 않는다 |
+| 셀프 체크 Q2. `deleteAccount`에서 checked 예외(`throw new Exception`)를 던지면 rollback될까? | 안 된다, RuntimeException이 아니라서 | ✅ 정답. 보충: "rollback 안 됨" = **commit된다**(`completeTransactionAfterThrowing`의 else 분기) → 이미 지운 리뷰가 확정되고 예외는 그대로 던져짐. 대책: `@Transactional(rollbackFor = Exception.class)` 또는 RuntimeException 계열로 감싸 던지기. MyBatis의 DB 오류는 `DataAccessException`(RuntimeException)이라 기본 설정으로 rollback된다. 우리 커스텀 예외(`ForbiddenException`)도 RuntimeException 상속인지 확인해 둘 것 |
 
 ### 🛠️ 트러블슈팅
 
@@ -744,11 +750,19 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
     - 실행 결과: `MemberWithdrawTest.java:76 리뷰1이 남아 있어야 한다 ==> expected: not <null>` → **회원은 남았는데 리뷰가 사라짐 = Q1에서 예상한 상태**. 회원 assert(75행)는 통과하고 리뷰에서 실패. 두 번 연속 실행해도 같은 실패(Duplicate 없음) → `@AfterEach` 정리 정상 **트랜잭션 없이 실패 재현** (리뷰만 지워짐) → 테스트로 확인
 - [x] 4-3 ✅ (2026-11-22) ← 개념 Q 2개 답함 (2026-11-22). ✅ 교육생이 `deleteAccount` 메서드 위에 `@Transactional`(Spring import) → `1/0` 그대로 둔 채 🟢 통과(튜터 mvnw 재확인, `회원 탈퇴 완료` 로그 안 찍힘). 교육생이 `1/0` 제거(TODO 주석 한 줄은 남음 💅). **교육생 요청으로 튜터가** `deleteAccount_success`(회원·리뷰 `assertNull`) 추가 + 실패 테스트에 `@Disabled("실험용...")`. 전체 `mvnw test` 18개 중 17 통과·1 Skipped, 로그 `회원 탈퇴 완료: 회원번호=46 삭제된 리뷰 수=2`. `@Transactional`로 해결 → 같은 테스트 통과
 - [x] 4-4 ✅ (2026-11-22) ← **교육생 요청으로 튜터가 Aspect 수정**: Pointcut `service.*.*(..)`, `public`, `start`는 try 밖 + `try { return proceed(); } finally { end·log.debug }`(catch 없음 → 예외 그대로 전파), `{}` 두 개 + `toShortString()`. 결과: 전체 18개 중 17 통과·1 Skipped, `MemberServiceImpl.signUp(..) 실행 시간 = 8ms` 등. MemberServiceTest에서 signUp 7회·login 3회 = **예외가 난 호출(중복 이메일, 틀린 이메일·비밀번호)도 시간 로그가 찍힘** → finally 효과 확인. ② Aspect 1차 리뷰 (2026-11-22): ✅ `aop` 패키지, `@Aspect @Component @Slf4j`, `ProceedingJoinPoint`·`Object`·`throws Throwable`, 지역 변수 start/end, `proceed()` 결과 받아서 `return`. 🔴 Pointcut `service.*...(..)` → 에러 없이 **아무 메서드에도 안 걸림**(MemberServiceTest 초록, Service 로그는 찍히는데 시간 로그 0줄) — 메서드 이름 자리가 `*`여야 함 / 🟡 예외 시 시간 로그 안 남음 → 교안생 결정: **예외가 나도 측정하겠다** (가이드: `try { proceed·return } finally { end·log }`, `start`는 try 밖, catch로 예외를 삼키지 않기 — 선택: `catch (Throwable e) { 실패 표시 로그; throw e; }`) / 💅 문자열 `+`와 `{}` 섞어 씀 → `{}` 두 개, `"실행 시간"` 앞 공백, 메서드 `public`(교안 관례). ① 의존성 ✅ (2026-11-22, `<version>` 없이 추가, aspectjweaver 1.9.25.1 받음) · 개념 Q 2개 답함, 요구사항 제시 (2026-11-22: pom `spring-boot-starter-aspectj` + Maven Update, `aop` 패키지에 `@Aspect @Component @Slf4j` 클래스, `@Around(execution 직접 작성)`, `ProceedingJoinPoint`·`Object` 반환·`throws Throwable`, `proceed()` 호출·반환, 예외가 나도 시간 로그 → try/finally 고민, 실행 결과 확인) ( 튜터가 교안 [스프링_AOP_정리] 1~6장·FW_04 확인, pom에 `spring-boot-starter-aspectj` 없음) Service 실행 시간 측정 `@Around` Aspect (`spring-boot-starter-aspectj` 의존성 확인)
-- [ ] 4-5 M3의 로그인 검사 중복(write GET·POST, delete, edit GET·POST 5곳) → "한 곳으로 모으는 방법" 토론 (Interceptor는 👀 설명만)
-- [ ] 셀프 체크: 같은 클래스 내부 호출에서 `@Transactional`이 안 먹는 이유 / checked 예외면 롤백될까?
-- [ ] 완료 기준: 탈퇴 테스트가 `@Transactional` 없이는 실패, 붙이면 통과 + 로그에 Service 실행 시간
+- [x] 4-5 ✅ (2026-11-22, 👀 설명으로 마무리) ← 토론 시작 (2026-11-22): ReviewController 5곳(56·66·79·101·123행 근처) 같은 4줄 확인, 질문 2개 제시(방금 만든 Aspect로 옮기면 어떤 문제? / 어느 시점에서 막는 게 좋을까). 교안: Notion [Interceptor] 페이지, Spring MVC pt.1 실행 순서. M3의 로그인 검사 중복(write GET·POST, delete, edit GET·POST 5곳) → "한 곳으로 모으는 방법" 토론 (Interceptor는 👀 설명만)
+- [x] 셀프 체크 ✅ (2026-11-22, Q1·Q2 정답): 같은 클래스 내부 호출에서 `@Transactional`이 안 먹는 이유 / checked 예외면 롤백될까?
+- [x] 완료 기준 ✅: 탈퇴 테스트가 `@Transactional` 없이는 실패, 붙이면 통과 + 로그에 Service 실행 시간
+- [ ] (💅 남음) `MemberServiceImpl.deleteAccount`의 `// TODO: 4-3 후 삭제` 주석 지우기 (줄 끝 공백 정리와 함께 커밋 안 된 상태)
 
 ### 📌 다음 세션 시작점
+
+**M4 완료 ✅ (2026-11-22) → M5 마무리로 이동**. 커밋 `715bb00`(4-1~4-3), `a9cc062`(4-4)까지, push 안 함.
+1. 먼저 정리: `MemberServiceImpl`의 `// TODO: 4-3 후 삭제` 주석 삭제(교육생) → 줄 끝 공백 변경과 함께 커밋, push 여부 확인
+2. 튜터: Notion 교안 **Spring MVC pt.2**(업로드·`@ControllerAdvice`)·**DI** 다시 읽기, 샘플 `FW_05_mvc_basic_sol`의 `MvcConfigurer`·`MvcExceptionHandler`·`ControllerTest` 확인
+3. M5 첫 개념 질문: "`ReviewService`가 `ImageStorage` 구현체(Local/Fake)를 바꿔도 코드를 안 고쳐도 되는 이유?" → `ImageStorage` 인터페이스 요구사항
+
+#### (지난) M4 시작 시점 기록
 
 **M4 시작** (M3 완료 2026-11-22, 커밋 `982979a`까지 push됨).
 1. 튜터: Notion 교안 **[ Spring Framework ] > Spring Transaction** 다시 읽기, 샘플 `FW_07_mybatis_sol`의 `BasicMemberService.delete`·`@Transactional` 전파 테스트 확인(스크래치패드에 압축 해제)
