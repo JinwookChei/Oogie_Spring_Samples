@@ -1,8 +1,10 @@
 package com.study.matzip.model.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.study.matzip.model.dao.MemberDao;
+import com.study.matzip.model.dao.ReviewDao;
 import com.study.matzip.model.dto.Member;
 
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 public class MemberServiceImpl implements MemberService {
 
 	private final MemberDao memberDao;
+	
+	private final ReviewDao reviewDao;
 
 	@Override
 	public int signUp(Member member) {
@@ -48,5 +52,15 @@ public class MemberServiceImpl implements MemberService {
 		mem.setPassword(null);
 		log.info("로그인 성공 {}", mem.getMno());
 		return mem;
+	}
+	
+	@Override
+	@Transactional
+	public void deleteAccount(int mno) {
+		int delReviewCnt = reviewDao.deleteByMno(mno);
+		// TODO: 4-3 후 삭제 (4-2 실패 재현용: 리뷰 삭제와 회원 삭제 사이에서 항상 예외)
+		int delMemberCnt = memberDao.delete(mno);		
+		
+		log.info("회원 탈퇴 완료: 회원번호={} 삭제된 리뷰 수={}", mno, delReviewCnt);
 	}
 }

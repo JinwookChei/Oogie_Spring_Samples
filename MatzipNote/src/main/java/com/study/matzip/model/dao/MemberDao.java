@@ -7,4 +7,6 @@ public interface MemberDao {
 	public int insert(Member member);
 	
 	public Member selectByEmail(String email); 
+	
+	public int delete(int mno);
 }

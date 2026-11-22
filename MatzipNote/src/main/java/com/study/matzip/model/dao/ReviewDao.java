@@ -18,4 +18,6 @@ public interface ReviewDao {
 	public Review selectDetail(int rno);
 	
 	public List<Review> search(ReviewSearch reviewSearch);
+	
+	public int deleteByMno(int mno);
 }

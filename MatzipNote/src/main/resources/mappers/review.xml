@@ -66,4 +66,9 @@
 		</where>
 	</select>
 	
+	<delete id="deleteByMno">
+		DELETE FROM review
+		WHERE mno = #{mno}
+	</delete>
+	
 </mapper>

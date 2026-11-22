@@ -7,4 +7,6 @@ public interface MemberService {
 	public int signUp(Member mem);
 	
 	public Member login(String email, String password);
+	
+	public void deleteAccount(int mno);
 }

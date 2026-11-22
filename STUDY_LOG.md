@@ -668,26 +668,62 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ---
 
-## M4. 트랜잭션 + AOP — ⏳ 시작 전
+## M4. 트랜잭션 + AOP — 🔄 진행 중 (2026-11-22 시작)
 
 ### ✅ 한 일
 
+- 4-1 회원 탈퇴: `ReviewDao.deleteByMno`, `MemberDao.delete`(+XML), `MemberService.deleteAccount`(리뷰 → 회원, `log.info`)
+- 4-2 `MemberWithdrawTest`로 트랜잭션 없는 탈퇴의 실패 재현 (리뷰만 지워짐 🔴)
+- 4-3 `@Transactional` 한 줄로 같은 테스트 🟢 (PLAN 완료 기준 앞부분 달성)
+
 ### 📚 배운 개념
+
+- **XML의 SQL은 컴파일 때 검사되지 않는다**: `DELETE *`, `WHEN` 같은 오타는 쿼리를 처음 실행할 때 `BadSqlGrammarException`으로 드러난다 → DAO·Service 테스트가 필요한 이유
+- **`@Test`만 테스트다**: `@BeforeEach`/`@AfterEach`는 각 테스트의 준비·정리. 정리에는 assert를 넣지 않고, 테스트가 실패해도 실행된다
+- **트랜잭션 실험 테스트에는 `@Transactional`을 붙이지 않는다**: 붙이면 Service가 테스트 트랜잭션에 참여(REQUIRED)하고 rollback은 테스트 끝에 한 번 → 차이가 안 보인다. 대신 진짜 commit + `@AfterEach` 수동 정리 (샘플 FW_07 `MemberServiceTest`와 같은 구조)
+- **commit/rollback은 Connection의 메서드**다. 트랜잭션이 없으면 DAO 호출마다 Connection을 따로 받고 auto-commit으로 바로 확정된다. 그래서 2번째 작업이 실패해도 1번째 작업은 이미 commit된 상태다 → 탈퇴하면 리뷰만 지워지고 회원은 남는다.
+- **하나의 업무 = 하나의 Connection = 하나의 트랜잭션**. 업무 단위를 맡는 곳은 Service라서 트랜잭션도 Service에 건다. DAO는 쿼리 하나 단위다.
+- `review.mno` FK에 `ON DELETE CASCADE`가 없다 → **리뷰를 먼저** 지워야 회원을 지울 수 있다 (순서가 바뀌면 FK 위반 예외가 난다).
 
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
 |---|---|---|
+| Q1. 탈퇴 중 리뷰 삭제는 성공하고 회원 삭제에서 예외가 나면 DB 상태는? | 회원은 안 지워지고 리뷰만 지워짐 | ✅ 상태는 정답. 🟡 "왜"를 보충: DAO마다 Connection이 따로이고 각각 auto-commit이라 리뷰 삭제는 이미 확정됐다 (commit/rollback = Connection의 일) |
+| Q2. 트랜잭션은 DAO와 Service 중 어디에? | Service. 회원 삭제라는 비즈니스 로직을 묶어서 원자적으로 수행해야 함 | ✅ 정답. "원자성"이라는 용어도 정확함. DAO = 쿼리 1개, Service = 업무 1개 |
+| `@Param("pw") String password`일 때 XML에서 `#{password}` vs `#{pw}`? | `#{pw}` | ✅ 정답. 🟡 이유 보충: XML이 보는 이름은 Java 변수명이 아니라 `@Param`에 적은 **Map의 key**다 (변수명은 컴파일하면 사라질 수 있음) |
+| 탈퇴 시 `memberDao.delete`가 0(없는 회원)이면? | (a) 그냥 둔다 (이유는 말하지 않음) | ✅ 타당한 선택. 튜터 보충: 탈퇴는 로그인한 본인만 호출하니 회원이 없을 일이 거의 없고, 이미 없다면 "없게 만든다"는 목적은 이미 이뤄진 상태다(삭제의 멱등성). 다음엔 이유도 한 줄 같이! |
+| 4-3 Q1. `@Transactional`을 인터페이스 / Impl 클래스 / `deleteAccount` 메서드 중 어디에? | 메서드 위. 클래스에 붙이면 testBefore·testAfter에도 적용되기 때문 | 🟡 선택(메서드)은 OK, 이유는 대상이 섞임. 질문은 **`MemberServiceImpl`** 클래스였음 → 클래스에 붙이면 Impl의 public 메서드 전부(`signUp`·`login`·`deleteAccount`)에 적용된다. 테스트 클래스와는 무관. (테스트 클래스에 붙이면 안 된다는 감각 자체는 4-2와 맞음.) 메서드 위 = 여러 DAO를 묶어야 하는 업무에만 정확히 건다. 인터페이스는 비추천(Spring 문서도 구현 클래스 권장) |
+| 4-3 Q2. 붙이고 `1/0` 그대로 두면 테스트 결과는? | 모르겠어 | 설명: proxy가 트랜잭션 시작 → 리뷰 삭제(아직 commit 전) → `1/0` = RuntimeException → proxy가 **rollback** 후 예외를 **그대로 다시 던짐** → `assertThrows` 통과 + 회원·리뷰 `assertNotNull` 통과 → **초록불**. 예외는 여전히 나지만 DB는 탈퇴 전 그대로 = 원자성 |
 
 ### 🛠️ 트러블슈팅
 
 ### ❓ 내가 한 질문
 
+- **(2026-11-22) DAO 메서드 인자가 3개(`exampleFunction(int a, int b, int c)`)면 mapper.xml에서 어떻게 쓰나?**
+  → 파라미터마다 `@Param("이름")`(`org.apache.ibatis.annotations.Param`)을 붙이고 XML에서 `#{이름}`으로 쓴다. 여러 개면 MyBatis가 내부적으로 Map으로 묶기 때문에 `parameterType`은 쓰지 않는다. `@Param`이 없으면 `#{arg0}`·`#{param1}` 같은 이름으로만 접근될 수 있다(컴파일 옵션 `-parameters`에 따라 달라짐) → 샘플(FW_07)처럼 **항상 `@Param`을 붙이는 것**이 안전하다. 값이 많거나 의미 있게 묶이면 DTO(예: `ReviewSearch`)로 넘기는 방법도 있다.
+- **(2026-11-22) `@Param` 없이 `#{a}`, `#{b}`, `#{c}`로 바로 써도 되나?**
+  → **이 프로젝트에서는 된다. 단, 조건이 맞을 때만.** ① MyBatis 설정 `useActualParamName`(기본값 true) ② 컴파일할 때 `-parameters` 옵션으로 변수명이 `.class`에 남아 있을 것. Boot parent pom이 `-parameters`를 켜 주고, 실제로 `javap -v ReviewDao.class`를 보면 `MethodParameters`(`review`, `rno` 등)가 남아 있다. 조건이 깨지면(다른 빌드 설정, 옛 프로젝트, 다른 IDE 설정) 실행할 때 `Parameter 'a' not found. Available parameters are [arg0, arg1, arg2, param1, param2, param3]` 에러가 난다 → 컴파일은 통과하고 **실행할 때 터진다**는 게 위험한 점이다. 그래서 `@Param`을 권장한다.
+- **(2026-11-22) `update(Review review)`처럼 인자가 1개일 때도 `@Param`을 권장하나?**
+  → **DTO 1개면 붙이지 않는다.** 붙이면 XML에서 `#{title}`이 아니라 `#{review.title}`로 써야 한다 (`@Param`을 붙이면 DTO가 Map 안의 값 하나가 되기 때문). 붙이지 않으면 DTO 자체가 파라미터라 `#{필드명}` → getter로 바로 읽힌다. **기본형·String 1개**(`int mno`)는 사실 이름과 상관없이 그 값 하나가 들어가지만, 의미를 드러내려고 붙여도 된다. 샘플 FW_07 관례: `insert(Member)`·`update(Member)`·`search(SearchCondition)`에는 붙이지 않고, `delete(@Param("mno") int mno)`·`select(@Param("email") String)`에는 붙인다.
+  - (튜터 정정) 앞에서 "샘플은 1개여도 전부 붙였다"고 했는데 틀렸다 → 기본형·String에만 붙였다.
+- **(2026-11-22) `@Transactional` 내부에서 `@Around`를 쓰는 코드를 볼 수 있나?**
+  → `@Around` 애너테이션을 직접 쓰지는 않는다. Spring AOP의 **`MethodInterceptor`**(AOP Alliance) 인터페이스로 만든 **Around Advice**다. 실제 소스(spring-tx 7.0.10): `TransactionInterceptor.invoke(MethodInvocation)` → `TransactionAspectSupport.invokeWithinTransaction`. 그 안의 구조: `createTransactionIfNecessary`(시작) → `try { retVal = invocation.proceedWithInvocation(); }`(진짜 메서드, 소스 주석에도 "This is an around advice") → `catch (Throwable ex) { completeTransactionAfterThrowing(...); throw ex; }`(rollback 후 예외를 다시 던짐) → `commitTransactionAfterReturning`(commit). rollback 여부는 `DefaultTransactionAttribute.rollbackOn` = `ex instanceof RuntimeException || ex instanceof Error` → **checked 예외면 rollback 대신 commit** (`completeTransactionAfterThrowing`의 else 분기). AspectJ 용어와 대응: Pointcut = `TransactionAttributeSourcePointcut`(@Transactional 붙은 메서드), Advice = `TransactionInterceptor`, Advisor(=Aspect) = `BeanFactoryTransactionAttributeSourceAdvisor`, `invocation.proceed()` ≈ `joinPoint.proceed()`. STS에서 `Ctrl+Shift+T` → `TransactionInterceptor`로 열 수 있고, `invoke`에 breakpoint를 걸고 `Debug As > JUnit Test`로 따라가 볼 수 있다.
+- **(2026-11-22) Service `deleteAccount(int mno)`의 반환형은 뭘로?**
+  → **`void` 추천.** Service 반환값은 "Controller가 다음 화면을 그리는 데 필요한 것"이다. 탈퇴 후 Controller는 세션을 끊고 redirect만 하므로 줄 값이 없다. 실패는 반환값(0, -1)이 아니라 **예외**로 알린다 (M3 `ForbiddenException`과 같은 원칙, 4-2·4-3의 rollback도 예외가 있어야 동작한다). 지운 리뷰 개수 같은 정보는 Service 안의 `log.info`로 남긴다. DAO가 `int`(행 수)를 돌려주는 것과 Service의 반환형은 별개다. 참고: `public deleteAccount(int mno);`처럼 반환형을 비우면 컴파일 에러("Return type for the method is missing")가 난다. 샘플 FW_07 `MemberService.delete`도 `void`.
+
 ### ⏭️ 남은 일
 
-- [ ] 4-1 회원 탈퇴 = 리뷰 전체 삭제 + 회원 삭제 (DAO: 회원의 리뷰 전체 삭제, 회원 삭제 / Service 탈퇴 메서드)
-- [ ] 4-2 중간에 예외를 일부러 넣어 **트랜잭션 없이 실패 재현** (리뷰만 지워짐) → 테스트로 확인
-- [ ] 4-3 `@Transactional`로 해결 → 같은 테스트 통과
+- [x] 개념 질문 2개 ✅ (2026-11-22)
+- [x] 4-1 회원 탈퇴 ✅ (2026-11-22) = 리뷰 전체 삭제 + 회원 삭제 (DAO: 회원의 리뷰 전체 삭제, 회원 삭제 / Service 탈퇴 메서드) ← 요구사항 제시함 (2026-11-22): `ReviewDao.deleteByMno`, `MemberDao.delete`, `MemberService.withdraw`(이름은 자유), `MemberServiceImpl`에 `ReviewDao` 주입, 리뷰 → 회원 순서, `@Transactional`은 아직 붙이지 않음
+  - [x] ① `ReviewDao.deleteByMno` ✅ (2차 통과, `DELETE *` → `DELETE FROM` 수정) (2026-11-22 1차 리뷰): 잘함 = 인터페이스 선언(int 반환), `id`=메서드명, WHERE `mno`, 기존 `delete`와 같은 위치·형식. 🔴 `DELETE *` → MySQL 문법 오류(`DELETE`는 행 단위라 컬럼 목록이 없음, `DELETE *`는 MS Access 문법). XML SQL은 앱이 시작될 때 검사하지 않아서 **처음 실행할 때** `BadSqlGrammarException`이 난다
+  - [x] ② `MemberDao.delete` ✅ (2차 통과, `WHEN` → `WHERE`) (2026-11-22 1차 리뷰): 인터페이스 ✅, `id="delete"`·`DELETE FROM member` ✅. 🔴 `WHEN mno = ...` → `WHERE` (WHEN은 CASE문 키워드)
+  - [x] ③ `MemberService.deleteAccount` + Impl ✅ (3차 통과: 로그 `mno`로 수정, 행 수 0이면 (a) 그냥 둔다) (2026-11-22 1차 리뷰, 컴파일 OK): ✅ `void`, `ReviewDao` `final` 필드로 주입, 리뷰 → 회원 순서, 행 수를 변수로 받아 둠. 🟡 `log.info` 없음(받아 둔 `delReviewCnt` 활용) / 🟡(선택) `delMemberCnt == 0`이면 없는 회원 → 예외? / 💅 끝의 빈 줄 3개
+  - (2026-11-22 2차 리뷰) ✅ 이름 `deleteAccount`(인터페이스·Impl 일치, `@Override` 유지), 빈 줄 정리, `log.info` 추가. 🔴 로그의 `회원번호={}` 자리에 `delMemberCnt`(지운 행 수 = 1)가 들어감 → 파라미터 `mno`여야 함 (변수 이름이 비슷해서 생긴 실수, 로그는 나중에 장애를 추적할 때 보는 증거라 값이 틀리면 안 됨). 보완 2(행 수 0일 때) 선택 답 아직 없음
+- [x] 4-2 ✅ (2026-11-22, 🔴 재현 성공) ← 요구사항 제시함 (2026-11-22): 새 테스트 클래스(`@Transactional` 없음, `@BeforeEach` 회원+리뷰 insert / `@AfterEach` deleteByMno→delete 정리), Service 두 DAO 호출 사이에 임시 `1/0`, `assertThrows` 후 회원·리뷰 둘 다 `assertNotNull` 기대 → 빨간불이 정상. 중간에 예외를 일부러 넣어 — (2026-11-22 1차 리뷰) ✅ Service `1/0`(컴파일 OK, Unreachable 피함), 새 클래스·`@Transactional` 없음, 필드 저장, `@BeforeEach`에서 회원 insert. 🔴 `@Test` 메서드가 없음(검증을 `@AfterEach`에 씀 → JUnit이 실행할 테스트가 없음) / 🔴 리뷰 builder에 `.mno(m.getMno())` 없음(review.mno NOT NULL + FK → insert 실패, 회원만 commit돼서 남음) / 🔴 `@AfterEach`는 정리 전용: Service(지금은 항상 예외)가 아니라 DAO `deleteByMno` → `delete` / 🔴 기대값 반대: 실패 후엔 `assertNotNull` / 💅 `ReviewSearch` import 미사용, `1/0` TODO 주석 없음. 튜터는 테스트를 실행하지 않음(지금 실행하면 테스트 회원이 DB에 남음)
+    - (2026-11-22) **교육생 요청으로 튜터가 수정**: `@Test deleteAccount_failInMiddle_rollbackAll` 새로 만듦(`assertThrows(ArithmeticException)` → 회원·리뷰1·리뷰2 `assertNotNull` + 메시지), 리뷰 builder에 `.mno(m.getMno())`, `@AfterEach`를 DAO 정리 전용으로(`deleteByMno` → `delete`), import 정리, 클래스 위에 `@Transactional`을 붙이지 않는 이유 주석, Service `1/0` 위에 TODO 주석
+    - 실행 결과: `MemberWithdrawTest.java:76 리뷰1이 남아 있어야 한다 ==> expected: not <null>` → **회원은 남았는데 리뷰가 사라짐 = Q1에서 예상한 상태**. 회원 assert(75행)는 통과하고 리뷰에서 실패. 두 번 연속 실행해도 같은 실패(Duplicate 없음) → `@AfterEach` 정리 정상 **트랜잭션 없이 실패 재현** (리뷰만 지워짐) → 테스트로 확인
+- [x] 4-3 ✅ (2026-11-22) ← 개념 Q 2개 답함 (2026-11-22). ✅ 교육생이 `deleteAccount` 메서드 위에 `@Transactional`(Spring import) → `1/0` 그대로 둔 채 🟢 통과(튜터 mvnw 재확인, `회원 탈퇴 완료` 로그 안 찍힘). 교육생이 `1/0` 제거(TODO 주석 한 줄은 남음 💅). **교육생 요청으로 튜터가** `deleteAccount_success`(회원·리뷰 `assertNull`) 추가 + 실패 테스트에 `@Disabled("실험용...")`. 전체 `mvnw test` 18개 중 17 통과·1 Skipped, 로그 `회원 탈퇴 완료: 회원번호=46 삭제된 리뷰 수=2`. `@Transactional`로 해결 → 같은 테스트 통과
 - [ ] 4-4 Service 실행 시간 측정 `@Around` Aspect (`spring-boot-starter-aspectj` 의존성 확인)
 - [ ] 4-5 M3의 로그인 검사 중복(write GET·POST, delete, edit GET·POST 5곳) → "한 곳으로 모으는 방법" 토론 (Interceptor는 👀 설명만)
 - [ ] 셀프 체크: 같은 클래스 내부 호출에서 `@Transactional`이 안 먹는 이유 / checked 예외면 롤백될까?

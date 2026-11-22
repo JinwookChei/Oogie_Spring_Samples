@@ -10,4 +10,10 @@
 	<select id="selectByEmail" resultType="Member">
 		SELECT * FROM member WHERE email = #{email}
 	</select>
+	
+	<delete id="delete">
+		DELETE FROM member
+		WHERE mno = #{mno}
+	</delete>
+	
 </mapper>
