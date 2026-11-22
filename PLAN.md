@@ -179,12 +179,12 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
-### M7. REST API · 약 2시간 (시간 빠듯 → 핵심만)
+### M7. REST API · 약 2시간 (시간 빠듯 → 핵심만) — ✅ 완료 (2026-11-22)
 교안: REST API (Notion) · 샘플: 없음 (교안 TODO 02·03 기준)
 
-- [ ] 🔍 `ReviewRestController`(`@RestController`, `/api/reviews`): 상세 `GET /{rno}` + 작성 `POST`(`@RequestBody`) → `ResponseEntity`(작성은 201 Created)
-- [ ] 🔍 `@RestControllerAdvice`(API 패키지만) + `ProblemDetail`: 없는 리뷰 → 404 JSON
-- [ ] 🔍 MockMvc `jsonPath` 테스트 1~2개
+- [x] 🔍 `ReviewRestController`(`@RestController`, `/api/reviews`) ✅ (실제 경로는 `/api/review`): 상세 `GET /{rno}` + 작성 `POST`(`@RequestBody`) → `ResponseEntity`(작성은 201 Created)
+- [x] 🔍 `@RestControllerAdvice`(API 패키지만) + `ProblemDetail`: 없는 리뷰 → 404 JSON ✅ (`config/RestExceptionHandler`)
+- [x] 🔍 MockMvc `jsonPath` 테스트 1~2개 ✅ (`ReviewRestControllerTest` 4개)
 - 👀 (설명만) REST URL 설계 규칙, PUT vs PATCH, API Versioning, Swagger, CORS·SOP, `RestClient`
 
 **셀프 체크**: 화면용 `@ControllerAdvice`와 API용 `@RestControllerAdvice`를 왜 나눌까?
@@ -226,3 +226,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-22 | 계획 추가 | Notion `[ Spring Framework ]`에 Interceptor·REST API 교안이 추가됨 → 교육생 결정으로 **M6 Interceptor**, **M7 REST API** 추가, 범위 밖 목록 조정, CLAUDE.md 교안 순서 갱신 (샘플 zip 없음) |
 | 2026-11-22 | 계획 축소 | 교육생 시간 빠듯 → M6 약 1시간(Interceptor 등록·로그인 검사 제거만), M7 약 2시간(상세·작성 API + ProblemDetail 404 + jsonPath 테스트만, 나머지는 👀 설명) |
 | 2026-11-22 | M6 보류 | Interceptor 개념(검문소 비유, Filter·AOP·ControllerAdvice와 위치 비교) 설명 후 교육생 결정으로 구현은 넘어감. 작성 중이던 `LoginCheckInterceptor`는 패턴이 어느 주소에도 안 걸려 동작 영향 없음. **다음: M7 REST API** |
+| 2026-11-22 | **M7 완료 — 맛집 노트 실습 종료** (M6 보류) | `restcontroller/ReviewRestController`(`/api/review` 상세 GET 200·작성 POST 201, 세션 mno), `config/RestExceptionHandler`(`basePackageClasses` + `@Order`, 404·500 `ProblemDetail`), `ReviewRestControllerTest` 4개. 테스트가 Jackson 3 역직렬화 버그(`Cannot map null into type int`, POST 항상 500) 발견 → `spring.jackson.deserialization.fail-on-null-for-primitives=false`. 전체 테스트 28개(1 Skipped). Notion 업로드. 셀프 체크는 튜터 설명 |

@@ -892,29 +892,57 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ---
 
-## M7. REST API — 🔄 진행 중 (2026-11-22 시작, 시간 빠듯 → 핵심만 약 2시간)
+## M7. REST API — ✅ 완료 (2026-11-22) · [Notion](https://app.notion.com/p/4206412b0acd8132a470d0ea33650126)
 
 ### ✅ 한 일
 
+- 7-1 `restcontroller/ReviewRestController`(교육생 작성): `GET /api/review/{rno}` → 200, `POST /api/review`(`@RequestBody`, 세션 확인 401, 작성자 mno는 세션) → 201 + 저장된 리뷰. `/review` → `/api/review`로 주소 충돌(`Ambiguous mapping`) 해결
+- 7-2 `config/RestExceptionHandler`(클래스 부분 교육생, 메서드 튜터): 404·500 `ProblemDetail`
+- 7-3 `ReviewRestControllerTest`(튜터) 4개 → Jackson 3 역직렬화 버그 발견·수정
+
 ### 📚 배운 개념
+
+- **REST API (교안 REST API 7·9·11·13·14·16장)**: 화면 대신 데이터(JSON), URL = 자원(명사·복수형), HTTP 메서드 = 행위, "화면·세션 이야기 하지 말자". `@RestController` = `@Controller` + `@ResponseBody`(객체 → Jackson → JSON). `@RequestBody`(JSON body → 객체) ↔ `@ModelAttribute`(폼): Content-Type과 짝(틀리면 필드 null 또는 415). `ResponseEntity`로 상태 코드(ok 200, CREATED 201, UNAUTHORIZED 401)
+- **API 에러**: `@RestControllerAdvice` = `@ControllerAdvice` + `@ResponseBody`, `basePackageClasses`(그 클래스의 패키지 전체, 문자열보다 안전) + `@Order(HIGHEST_PRECEDENCE)`, 반환 `ProblemDetail`(RFC 7807/9457: type·title·status·detail·instance, Content-Type `application/problem+json`, status가 응답 코드). `basePackages`는 이름 앞부분 일치 → 하위 패키지 포함 → API는 형제 패키지 `restcontroller`
+- **Advice 없이 예외가 나면**: Tomcat → `/error` → BasicErrorController → 브라우저(Accept: text/html)는 `error/500.jsp`, JSON 클라이언트는 기본 JSON(500) — 둘 다 원하는 결과 아님
+- **`@ExceptionHandler` 동작**: `@Component`를 품은 Advice가 스캔으로 빈 등록 → `ExceptionHandlerExceptionResolver`가 시작 시 목록화 → 예외 시 범위 + 가장 가까운 예외 타입으로 골라 Spring이 호출 (Interceptor와 달리 별도 등록 불필요)
+- **Jackson 3(Boot 4) 역직렬화**: `@AllArgsConstructor` + `-parameters` → 생성자 기반 생성 → JSON에 없는 기본형(int)은 null → `FAIL_ON_NULL_FOR_PRIMITIVES` 실패. GET(직렬화)은 무관, POST(역직렬화)만. 테스트로만 발견 가능했음(브라우저는 GET만)
 
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
 |---|---|---|
+| M7 셀프 체크: 화면용 `@ControllerAdvice`와 API용 `@RestControllerAdvice`를 왜 나눌까? | ("다 했어요" — 답 없이 마무리) | 설명: 같은 예외라도 **받는 쪽이 원하는 형식이 다름**. 화면(브라우저)은 에러 **페이지**(HTML, `ModelAndView`), API(앱·JS)는 에러 **JSON**(`ProblemDetail`). 하나로 섞으면 API에 HTML이 가거나 화면에 JSON이 감 → 오늘 본 `/api/review/9999` → `500.jsp`. 그래서 패키지(`controller` / `restcontroller`)로 범위를 나누고 각자 다른 Advice가 담당 |
+| M7 Q. `ReviewRestController`를 `controller.api`(하위 패키지)에 만들면? | 모르겠어 | 설명: `basePackages`는 **하위 패키지까지** 포함(M4 Pointcut의 `..`과 같은 개념) → 화면용 `MvcExceptionHandler`도 API Controller를 담당하게 됨 → 두 Advice가 동시에 해당, 화면용이 먼저 잡으면 API인데 **HTML 에러 페이지**(`error/500`)가 나감(교안 12장 "에러가 HTML로?"). 해결: 형제 패키지 `com.study.matzip.restcontroller`에 두고 `basePackageClasses`로 범위 분리(+ 필요하면 `@Order(Ordered.HIGHEST_PRECEDENCE)`) |
 
 ### 🛠️ 트러블슈팅
 
+- **(2026-11-22) `POST /api/review`가 항상 500: `HttpMessageNotReadableException: JSON parse error: Cannot map \`null\` into type \`int\``** (튜터가 작성한 `ReviewRestControllerTest`가 발견)
+  - 원인: Boot 4는 **Jackson 3**(`tools.jackson`). `Review`에 Lombok `@AllArgsConstructor`가 있고 `-parameters`로 파라미터 이름이 남아 있어서, Jackson이 setter 대신 **모든 필드를 받는 생성자**로 객체를 만듦 → JSON에 없는 `rno`(int) 자리에 null → 기본 설정 `FAIL_ON_NULL_FOR_PRIMITIVES`(true)로 실패. 그 예외를 `RestExceptionHandler`의 `Exception` 핸들러가 500으로 바꿈(원래 의미는 400)
+  - GET 상세(직렬화: 객체 → JSON)는 문제없음, POST(역직렬화: JSON → 객체)만 실패
+  - 해결(교육생 선택 A, 튜터 적용): `application.properties`에 `spring.jackson.deserialization.fail-on-null-for-primitives=false` → 없는 int는 0. 대안 B(`int`→`Integer`), C(테스트 JSON만 맞추기, 버그 은폐라 ❌)
+
+- **(2026-11-22) `Ambiguous mapping. Cannot map 'reviewRestController' method ... There is already 'reviewController' bean method`** → 두 Controller가 같은 HTTP 메서드 + 같은 URL(`GET /review/{rno}`)을 매핑. HandlerMapping이 하나를 고를 수 없어 **앱 시작 시점에 실패**(빈 2개 `NoUnique`와 같은 종류의 "모호함"). API는 `/api/...`로 주소 공간을 분리
+
 ### ❓ 내가 한 질문
+
+- **(2026-11-22) 예시 힌트 주세요** → 빈칸(`___`) 뼈대로 제공: ReviewRestController(클래스 애너테이션 3개, GET은 `ResponseEntity.ok`, POST는 세션 확인 → 401 / `setMno` → `writeReview(review, null)` → 201), RestExceptionHandler(`@RestControllerAdvice(basePackageClasses=..)` + `@Order`, 반환형 `ProblemDetail`, `forStatusAndDetail`), 테스트(`when().thenReturn/thenThrow`, `jsonPath("$.title").value(..)`)
+- **(2026-11-22) `@ExceptionHandler`에 대해 설명해 줘**
+  → "이 예외가 나면 이 메서드가 처리한다"는 **예외 전용 핸들러 메서드** 표시. Controller 밖으로 던져진 예외를 DispatcherServlet이 받아 → 맞는 `@ExceptionHandler`를 찾아 **Spring이 대신 호출**(= Controller 메서드처럼 IoC). 위치: Controller 안(그 Controller만) / `@ControllerAdvice`·`@RestControllerAdvice` 안(여러 Controller, 우리 방식). 선택 규칙: 예외 상속 구조에서 **가장 가까운 타입**(Forbidden 핸들러 > Exception 핸들러), 우선순위 Controller 안 try-catch > Controller 안 핸들러 > Advice > BasicErrorController. 파라미터: 처리할 예외 객체(+ request 등), 반환: 화면용 `ModelAndView`/뷰 이름, API용 `ProblemDetail`/`ResponseEntity`. try-catch와의 차이: try-catch는 메서드마다 복붙, 핸들러는 한 곳(횡단 관심사). 우리 프로젝트: `MvcExceptionHandler`(Forbidden→403, Exception→500), `RestExceptionHandler`(IllegalArgument→404, Exception→500)
+- **(2026-11-22) `RestExceptionHandler`는 어디에 등록되고 어떻게 쓰이나?**
+  → **따로 등록하는 코드가 없다.** ① 등록: `@RestControllerAdvice` 안에 `@ControllerAdvice` → 그 안에 `@Component` → `@SpringBootApplication`의 컴포넌트 스캔(`com.study.matzip` 아래)이 찾아 **빈으로 등록**(5-1 `@Component`와 같은 원리). ② 준비: 앱 시작 시 Spring MVC의 `ExceptionHandlerExceptionResolver`가 모든 Advice 빈과 그 안의 `@ExceptionHandler` 메서드 목록을 모아 둠. ③ 사용: Controller가 예외를 던지면 `DispatcherServlet` → Resolver가 "이 Controller가 범위(`basePackageClasses`)에 드는 Advice" 중 **가장 가까운 예외 타입**의 메서드를 골라 호출 → 반환한 `ProblemDetail`을 JSON으로. 대비: Interceptor는 `@Component`만으론 안 되고 `WebConfig.addInterceptors`에 직접 등록해야 했음(어느 URL에 세울지 정해야 하므로). Advice는 범위를 애너테이션 속성으로 적어 두니 자동
+- **(2026-11-22) API Advice가 없을 때 `/api/review/9999`에서 500.jsp가 보이는 건 어디서 설정된 것?**
+  → `MvcExceptionHandler`가 아님: `basePackages = "com.study.matzip.controller"`는 클래스 이름 **앞부분 일치**로 판단 → `com.study.matzip.restcontroller.ReviewRestController`는 `...controller`로 시작하지 않아 범위 밖. 실제 경로: 처리할 Advice가 없어 예외가 Tomcat까지 → `/error`로 내부 이동 → **BasicErrorController** → 브라우저는 `Accept: text/html`이라 `errorHtml()` → 5-3에서 만든 **`views/error/500.jsp`** 파일을 상태 코드로 찾아 사용(파일을 둔 것 자체가 설정). 그래서 `${msg}`가 비어 있음(Advice가 아니라 넣어 주는 사람이 없음). JSON 클라이언트(Accept: application/json)였다면 BasicErrorController의 `error()`가 기본 JSON(`timestamp, status, error, path`)을 줌 → 그래도 404가 아닌 500 → RestExceptionHandler가 필요한 이유
 
 ### ⏭️ 남은 일
 
-- [ ] 7-1 🔍 `restcontroller/ReviewRestController`(`@RestController`, `/api/reviews`): `GET /{rno}` → `ResponseEntity.ok(review)`, `POST`(`@RequestBody Review`, 세션 `loginUser` 없으면 401) → 201 Created ← 교안 [REST API] 7·9·11·13·14·16장 설명 + 확인 Q + 명세 제시 (2026-11-22)
-- [ ] 7-2 🔍 `config/RestExceptionHandler`(`@RestControllerAdvice(basePackageClasses = ReviewRestController.class)`): `IllegalArgumentException` → 404 `ProblemDetail`, `Exception` → 500(고정 문구)
-- [ ] 7-3 🔍 `ReviewRestControllerTest`(`@WebMvcTest`): 상세 200 + `jsonPath("$.title")`, 없는 번호 404 + `jsonPath("$.status")`
+- [x] 7-1 🔍 ✅ (2026-11-22 2차 통과: `/api/review`로 주소 분리 → 앱 시작 OK(MatzipNoteApplicationTests 통과), `.body(review)`로 201 + 새 rno. 💅 REST 규칙상 복수형 `/api/reviews` 권장(PLAN·테스트 힌트와 통일)) (2026-11-22 1차 리뷰, 컴파일 OK) ✅ 패키지 `restcontroller`, `@RestController`·`@RequiredArgsConstructor`, `@PathVariable`·`@RequestBody`, `ResponseEntity.ok`, 세션 확인 → 401, 작성자 mno는 세션에서, `writeReview(review, null)`, 201. 🔴 `@RequestMapping("/review")` → 화면용 `ReviewController`의 `GET /review/{rno}`와 **같은 주소** → 앱 시작 실패 `Ambiguous mapping. Cannot map 'reviewRestController' method`(컴파일은 통과, MatzipNoteApplicationTests Error로 확인) → `/api/reviews` / 🟡 201인데 `.build()`로 본문 없음 → 새 rno를 클라이언트가 모름 → `.body(review)` `restcontroller/ReviewRestController`(`@RestController`, `/api/reviews`): `GET /{rno}` → `ResponseEntity.ok(review)`, `POST`(`@RequestBody Review`, 세션 `loginUser` 없으면 401) → 201 Created ← 교안 [REST API] 7·9·11·13·14·16장 설명 + 확인 Q + 명세 제시 (2026-11-22)
+- [x] 7-2 🔍 ✅ (2026-11-22) 교육생이 직접 작성하겠다고 해서 튜터 작성본 삭제 → **교육생이 클래스 부분 작성**(`@Slf4j`, `@RestControllerAdvice(basePackageClasses = ReviewRestController.class)`, `@Order(Ordered.HIGHEST_PRECEDENCE)`, import ✅) → 메서드는 교육생 요청으로 튜터가 채움(`noReview(IllegalArgumentException e)` → 404 `ProblemDetail`, `unexpectedError(Exception e)` → log.error + 500 고정 문구). 앱 시작 OK. (삭제 전 튜터 작성본 기록: `@RestControllerAdvice(basePackageClasses = ReviewRestController.class)` + `@Order(HIGHEST_PRECEDENCE)`, `IllegalArgumentException` → 404 `ProblemDetail`(log.warn), `Exception` → 500 고정 문구 + log.error. 앱 시작 OK. 👀 한계: JSON 형식이 틀리면 `HttpMessageNotReadableException` → Exception 핸들러가 500으로 바꿈(원래는 400) → 실무에선 400 핸들러 추가) `config/RestExceptionHandler`(`@RestControllerAdvice(basePackageClasses = ReviewRestController.class)`): `IllegalArgumentException` → 404 `ProblemDetail`, `Exception` → 500(고정 문구)
+- [x] 7-3 🔍 ✅ (2026-11-22, **교육생 요청으로 튜터가 작성**: ① 상세 200 + `content().contentType(JSON)` + `jsonPath` ② 없는 번호 404 + `application/problem+json` + `$.status`·`$.detail` ③ 작성 201 + JSON의 mno=99(사칭)를 무시하고 세션 mno=2 ④ 비로그인 401 + Service 미호출. 처음 ③④가 500 → Jackson 3 역직렬화 버그 발견·수정 후 4개 🟢, 전체 28개 중 27 통과·1 Skipped) `ReviewRestControllerTest`(`@WebMvcTest`): 상세 200 + `jsonPath("$.title")`, 없는 번호 404 + `jsonPath("$.status")`
 - [ ] 셀프 체크: 화면용 `@ControllerAdvice`와 API용 `@RestControllerAdvice`를 왜 나눌까?
 - [ ] 완료 기준: `/api/reviews`로 JSON 조회·작성, 없는 리뷰는 ProblemDetail 404, jsonPath 테스트 통과
 
 ### 📌 다음 세션 시작점
 
-**M7 진행 중**. 확인 Q 답 → 7-1 작성 → 리뷰.
+**M7 완료 ✅ (2026-11-22) → 맛집 노트 실습 종료** (M1~M5, M7 완료 / M6 Interceptor 보류). 전체 테스트 28개(27 통과, 1 Skipped = M4 롤백 실험용 `@Disabled`).
+- 선택 과제: ① M6 Interceptor 다시(📌 M6 챕터의 고칠 4가지) ② API 목록·수정·삭제(`GET /api/review`, `PUT`, `DELETE` 204) ③ JSON 형식 오류 → 400 핸들러(`HttpMessageNotReadableException`) ④ URL 복수형 `/api/reviews` ⑤ 👀 Swagger(springdoc)·CORS·RestClient 교안 읽기 ⑥ `@MybatisTest`/`@Mapper` 실험
