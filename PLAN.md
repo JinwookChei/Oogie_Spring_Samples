@@ -147,15 +147,15 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
-### M5. 마무리 · 3~4시간
+### M5. 마무리 · 3~4시간 — ✅ 완료 (2026-11-22)
 교안: Spring MVC pt.2 (Part 1·3·4), DI · 샘플: FW_05 `MvcConfigurer`, `MvcExceptionHandler`, `ControllerTest`
 
-- [ ] 🔍 **`ImageStorage` 인터페이스로 DI 체감**
+- [x] 🔍 **`ImageStorage` 인터페이스로 DI 체감** ✅ (`@Profile("local"/"fake")`, `ImageStorageTest`, 작성·수정 시 업로드 + `/upload/**` 표시, 수정 시 사진 유지)
   - `LocalImageStorage`(디스크 저장, UUID 파일명)와 `FakeImageStorage`(저장하지 않고 이름만 반환) 두 구현체
   - 같은 타입 빈 2개 → 에러 확인 → `@Primary` 또는 `@Profile`로 교체
   - 리뷰 작성 시 사진 업로드 (`MultipartFile`), `addResourceHandlers`로 화면에 표시
-- [ ] 👀 `@ControllerAdvice` + `@ExceptionHandler`: 권한 예외 → 403 페이지, 그 외 → 500 페이지, `error/404.jsp`
-- [ ] 👀 `@WebMvcTest` + `MockMvc` + `@MockitoBean`으로 리뷰 Controller 테스트 1~2개
+- [x] 👀 `@ControllerAdvice` + `@ExceptionHandler`: 권한 예외 → 403 페이지, 그 외 → 500 페이지, `error/404.jsp` ✅ (`config/MvcExceptionHandler`)
+- [x] 👀 `@WebMvcTest` + `MockMvc` + `@MockitoBean`으로 리뷰 Controller 테스트 1~2개 ✅ (`ReviewControllerTest` 2개)
 
 **셀프 체크**: `ReviewService`는 `ImageStorage` 구현체가 바뀌어도 왜 코드를 고칠 필요가 없을까? 404는 왜 `@ControllerAdvice`가 아니라 BasicErrorController가 처리할까?
 
@@ -194,3 +194,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-19 | M3 진행 중 | **3-3 작성자 검사 + 3-2-④ 삭제 완료**: `ForbiddenException`, Service private `checkReviewMno`(DB 원본으로 비교), `POST /review/{rno}/delete`(예외별 redirect, flash `msg`), 삭제 버튼 작성자에게만(`<c:if>` EL 문법), 브라우저 4가지(남의 글 차단) 통과. **다음: 단계 C 수정 리뷰부터** (교육생 초안 작성 중, `STUDY_LOG.md` 📌 참고) |
 | 2026-11-22 | **M3 완료** | 데스크탑 이동 점검(JDK·STS Lombok·MySQL·`mvnw test`), 수정 초안 유실 → 단계 C 리뷰 수정 완료(`getReviewForEdit`, `GET·POST /{rno}/edit`, `edit.jsp`, 수정 링크, 🔴 `updateReview` 이중 호출 수정), 브라우저 5가지 통과, `ReviewDaoTest` selectDetail·update·delete·없는 번호 추가(16개 초록), 셀프 체크, Notion 업로드. 미룸: `@MybatisTest`/`@Mapper` 실험, `image_name` null(M5). **다음: M4 트랜잭션 + AOP** |
 | 2026-11-22 | **M4 완료** | 4-1 탈퇴(`deleteByMno`·`delete`·`deleteAccount`, SQL 오타 `DELETE *`·`WHEN` 수정), 4-2 `MemberWithdrawTest`로 리뷰만 지워지는 실패 재현(튜터 수정 후 🔴), 4-3 `@Transactional` 한 줄로 🟢 + 정상 탈퇴 테스트·실험 `@Disabled`, `TransactionInterceptor` 소스 읽기, 4-4 `spring-boot-starter-aspectj` + `ExecutionTimeAspect`(Pointcut 오타로 매칭 0개 → 튜터 수정, try/finally), 4-5 Aspect·Interceptor·Filter 비교, 셀프 체크 2문제 정답, Notion 업로드. 남은 💅: `deleteAccount` TODO 주석. **다음: M5 `ImageStorage` DI** |
+| 2026-11-22 | **M5 완료 — 맛집 노트 M1~M5 전체 완료** | M5부터 튜터가 교안을 먼저 설명. 5-1 `ImageStorage` DI(빈 2개 `NoUnique` → `@Profile` → 0개 `NoSuch` 실험, `ImageStorageTest`), 5-2 사진 업로드(multipart 설정, `enctype`, `MultipartFile`, `WebConfig.addResourceHandlers`, 수정 시 DB 원본 이름 유지로 M3 `image_name` null 버그 해결, `InvalidImageException`), 5-3 `MvcExceptionHandler` 403/500 + `error/404.jsp`, 5-4 `ReviewControllerTest`(`@WebMvcTest`) 2개. 전체 테스트 24개(1 Skipped). 셀프 체크는 튜터 설명. Notion 업로드. 남은 선택: `@MybatisTest`/`@Mapper` 실험, Interceptor 구현, 수정 폼·저장의 Forbidden catch 정리 |

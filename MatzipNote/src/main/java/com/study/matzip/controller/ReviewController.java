@@ -110,11 +110,9 @@ public class ReviewController {
 			rediAttr.addFlashAttribute("msg", e.getMessage());
 			return "redirect:/review/list";
 		}
-		catch (ForbiddenException e) {
-			rediAttr.addFlashAttribute("msg", e.getMessage());
-			return "redirect:/review/"+rno;
-		}
-		
+		// ForbiddenException(남의 리뷰)은 여기서 잡지 않는다
+		// → 메서드 밖으로 던져짐 → MvcExceptionHandler.handleForbidden() → error/403.jsp (상태 코드 403)
+
 		rediAttr.addFlashAttribute("msg", "삭제 완료");
 		return "redirect:/review/list";
 	}
