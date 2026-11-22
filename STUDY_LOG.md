@@ -675,6 +675,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - 4-1 회원 탈퇴: `ReviewDao.deleteByMno`, `MemberDao.delete`(+XML), `MemberService.deleteAccount`(리뷰 → 회원, `log.info`)
 - 4-2 `MemberWithdrawTest`로 트랜잭션 없는 탈퇴의 실패 재현 (리뷰만 지워짐 🔴)
 - 4-3 `@Transactional` 한 줄로 같은 테스트 🟢 (PLAN 완료 기준 앞부분 달성)
+- 4-4 `spring-boot-starter-aspectj` + `ExecutionTimeAspect`(`@Around`, try/finally) → Service 메서드마다 실행 시간 로그 (PLAN 완료 기준 뒷부분 달성)
 
 ### 📚 배운 개념
 
@@ -695,8 +696,14 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 | 탈퇴 시 `memberDao.delete`가 0(없는 회원)이면? | (a) 그냥 둔다 (이유는 말하지 않음) | ✅ 타당한 선택. 튜터 보충: 탈퇴는 로그인한 본인만 호출하니 회원이 없을 일이 거의 없고, 이미 없다면 "없게 만든다"는 목적은 이미 이뤄진 상태다(삭제의 멱등성). 다음엔 이유도 한 줄 같이! |
 | 4-3 Q1. `@Transactional`을 인터페이스 / Impl 클래스 / `deleteAccount` 메서드 중 어디에? | 메서드 위. 클래스에 붙이면 testBefore·testAfter에도 적용되기 때문 | 🟡 선택(메서드)은 OK, 이유는 대상이 섞임. 질문은 **`MemberServiceImpl`** 클래스였음 → 클래스에 붙이면 Impl의 public 메서드 전부(`signUp`·`login`·`deleteAccount`)에 적용된다. 테스트 클래스와는 무관. (테스트 클래스에 붙이면 안 된다는 감각 자체는 4-2와 맞음.) 메서드 위 = 여러 DAO를 묶어야 하는 업무에만 정확히 건다. 인터페이스는 비추천(Spring 문서도 구현 클래스 권장) |
 | 4-3 Q2. 붙이고 `1/0` 그대로 두면 테스트 결과는? | 모르겠어 | 설명: proxy가 트랜잭션 시작 → 리뷰 삭제(아직 commit 전) → `1/0` = RuntimeException → proxy가 **rollback** 후 예외를 **그대로 다시 던짐** → `assertThrows` 통과 + 회원·리뷰 `assertNotNull` 통과 → **초록불**. 예외는 여전히 나지만 DB는 탈퇴 전 그대로 = 원자성 |
+| 4-3 `1/0`이 있을 때 `회원 탈퇴 완료` 로그가 안 찍힌 이유는? | 1/0에서 에러가 나서 rollback되었기 때문 | 🟡 반만 맞음. 로그가 안 찍힌 진짜 이유 = 예외가 나면 **그 줄에서 메서드 실행이 멈추고** 아래 줄(`memberDao.delete`, `log.info`)은 실행되지 않는다 (Java 예외의 흐름). rollback은 메서드가 끝난 **뒤에** proxy가 하는 일이고, 되돌리는 것은 **DB 변경**뿐이다. 이미 실행된 Java 코드나 찍힌 로그는 되돌리지 않는다. 증거: `@Transactional`이 없던 4-2에서도 로그는 안 찍혔다 |
+| 4-4 Q1. 실행 시간 측정에 `@Around`를 쓰는 이유는? | `@Before`에서 잰 시작 시간을 `@After`로 넘기려면 멤버 변수 같은 저장 공간이 필요 → `@Around`가 적합 | ✅ 정답. 보충: 그 멤버 변수는 실제로 **위험**하다. Aspect는 싱글톤 빈 1개라서 요청(스레드) 여러 개가 같은 필드를 덮어쓴다. `@Around`는 시작 시각을 **지역 변수**로 두므로 호출마다 따로 생긴다 |
+| 4-4 Q2. Service 전체에 쓸 Pointcut 지정자는? | `execution(... service 패키지 ...)` (이유는 안 씀) | ✅ 좋은 선택. 계층(패키지) 단위로 한꺼번에 걸 때 `execution`(교안 지정자 가이드). `@within(Service)`도 정답(패키지가 바뀌어도 유지된다는 장점). 너무 넓게(`com.study..*`) 잡으면 Controller·DAO까지 걸린다 |
+| `execution(* com.study.matzip.model.*.*(..))`는 `MemberServiceImpl.login`에 걸릴까? | 안 걸림. model 바로 아래 클래스만 보니까 | ✅ 정답. 보충: 마지막 `*`는 **메서드 이름**, 그 앞의 `model.*`이 "model 바로 안의 클래스 한 칸" → `model.service.MemberServiceImpl`은 한 칸 더 깊어서 실패. `model..*.*(..)`이면 걸린다 |
 
 ### 🛠️ 트러블슈팅
+
+- **(2026-11-22) Aspect를 만들었는데 로그가 안 찍힘** → Pointcut 오타(`service.*...(..)`). 틀린 Pointcut은 **에러가 아니라 "매칭되는 메서드 0개"** 로 조용히 끝날 수 있다. 확인 방법: 테스트 실행 후 Console에서 Aspect 로그가 있는지, 또는 `AopUtils.isAopProxy(memberService)`(교안 4-5)
 
 ### ❓ 내가 한 질문
 
@@ -709,6 +716,18 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - (튜터 정정) 앞에서 "샘플은 1개여도 전부 붙였다"고 했는데 틀렸다 → 기본형·String에만 붙였다.
 - **(2026-11-22) `@Transactional` 내부에서 `@Around`를 쓰는 코드를 볼 수 있나?**
   → `@Around` 애너테이션을 직접 쓰지는 않는다. Spring AOP의 **`MethodInterceptor`**(AOP Alliance) 인터페이스로 만든 **Around Advice**다. 실제 소스(spring-tx 7.0.10): `TransactionInterceptor.invoke(MethodInvocation)` → `TransactionAspectSupport.invokeWithinTransaction`. 그 안의 구조: `createTransactionIfNecessary`(시작) → `try { retVal = invocation.proceedWithInvocation(); }`(진짜 메서드, 소스 주석에도 "This is an around advice") → `catch (Throwable ex) { completeTransactionAfterThrowing(...); throw ex; }`(rollback 후 예외를 다시 던짐) → `commitTransactionAfterReturning`(commit). rollback 여부는 `DefaultTransactionAttribute.rollbackOn` = `ex instanceof RuntimeException || ex instanceof Error` → **checked 예외면 rollback 대신 commit** (`completeTransactionAfterThrowing`의 else 분기). AspectJ 용어와 대응: Pointcut = `TransactionAttributeSourcePointcut`(@Transactional 붙은 메서드), Advice = `TransactionInterceptor`, Advisor(=Aspect) = `BeanFactoryTransactionAttributeSourceAdvisor`, `invocation.proceed()` ≈ `joinPoint.proceed()`. STS에서 `Ctrl+Shift+T` → `TransactionInterceptor`로 열 수 있고, `invoke`에 breakpoint를 걸고 `Debug As > JUnit Test`로 따라가 볼 수 있다.
+- **(2026-11-22) `spring-boot-starter-aop`를 지우고 `spring-boot-starter-aspectj`를 추가하면 되나?**
+  → 맛집 노트 `pom.xml`에는 `spring-boot-starter-aop`가 **처음부터 없다**(grep 확인) → 지울 것 없이 `aspectj` 하나만 **추가**. 같은 기능의 옛 이름(Boot 3 이하)이라 둘 다 두지 않는다. 버전은 parent가 관리하므로 `<version>` 없이 `groupId`(`org.springframework.boot`)와 `artifactId`만 적는다. 추가 후 `Maven > Update Project`.
+- **(2026-11-22) AOP 관련 문서는 어디서 찾나?**
+  → ① 교안 Notion [스프링_AOP_정리] (4-3 의존성, 4-4 Aspect 작성, 5-3 execution 표, 6-5 `@Around`, 6-6 🔑 박스) ② 샘플 FW_04 `LoggingAspect`(구조 참고) ③ 공식 문서: Spring Framework Reference > Core > AOP (`docs.spring.io/spring-framework/reference/core/aop.html`, 하위 "@AspectJ support > Declaring a Pointcut / Declaring Advice"), Spring Boot Reference > AOP (`docs.spring.io/spring-boot/reference/features/aop.html`) ④ STS 안에서: 애너테이션에 마우스 올리기(Javadoc), `F3`/`Ctrl+클릭`으로 소스 열기
+- **(2026-11-22) `spring-boot-starter-aspectj`에 `<version>4.1.2</version>`을 적어서 추가해도 되나?**
+  → 동작은 한다(parent도 4.1.2라 값이 같음). 하지만 `<version>`은 **빼는 게 맞다**. parent(`spring-boot-starter-parent`)가 Boot 관련 의존성 버전을 한 곳에서 관리(dependency management)하므로, 직접 적으면 나중에 parent만 올렸을 때 이 줄만 옛 버전에 남아 **버전이 섞인다**. 다른 starter(`webmvc` 등)에도 버전이 없는 이유. STS도 "Overriding managed version" 경고를 띄운다. (`mybatis-spring-boot-starter`처럼 Boot가 관리하지 않는 라이브러리만 버전을 적는다)
+- **(2026-11-22) execution의 `*`, `..` 뜻과 쓰는 법?**
+  → 형식 `execution(반환형 [패키지.클래스.]메서드명(파라미터))` — 반환형·메서드명·괄호는 필수, 패키지.클래스는 생략 가능. `*` = 이름/타입 **한 덩어리**(반환형 아무거나, 클래스명 아무거나, `set*` = set으로 시작, 파라미터 자리에선 **정확히 1개**). `..` = **0개 이상**: 패키지 자리에선 하위 패키지 포함, 파라미터 자리에선 개수·타입 무관. `..`은 맨 앞에 못 온다. 예: `execution(* com.study.matzip.model.dao.*.*(..))` = dao 패키지(하위 제외)의 모든 클래스의 모든 메서드, `com.study.matzip..*.*(..)` = matzip 아래 전부(Controller·DAO까지 걸림 ⚠️)
+- **(2026-11-22) `*`와 `..`의 차이를 잘 모르겠다**
+  → 핵심: `*` = **딱 한 칸**(점과 점 사이 한 덩어리 / 파라미터 정확히 1개), `..` = **몇 칸이든**(0칸 포함, 하위 패키지 전부 / 파라미터 0개 이상). 폴더 비유: `model/*/` = model 바로 아래 폴더 1단계, `model/../` = model 아래 몇 단계든. 맛집 패키지 트리로 비교: `com.study.*.model` ❌(`matzip` 자리만 대체, 실제 경로와 다르면 실패) / `com.study..model` ✅. 파라미터: `(*)`는 `delete(int)` ✅·`login(String,String)` ❌·`findAll()` ❌, `(..)`는 셋 다 ✅
+- **(2026-11-22) 실행 시간을 재는 함수는?**
+  → ① `System.currentTimeMillis()`: 1970-01-01부터 지금까지 ms(`long`). 교안 5-7·6-6 예시가 이것. 단, "벽시계" 시각이라 서버 시간이 동기화로 바뀌면 값이 튈 수 있다 ② `System.nanoTime()`: ns 단위, **시간 간격 측정 전용**(값 자체는 의미 없음, 차이만 의미). 짧은 메서드(DB 없이 1ms 미만)도 0이 안 나온다. ms로 보려면 1,000,000으로 나눈다 ③ Spring `org.springframework.util.StopWatch`: `start()`/`stop()`/`getTotalTimeMillis()`, 구간 여러 개를 이름 붙여 잴 때 편함. 실습 추천: 교안대로 `currentTimeMillis` 또는 정확히 재려면 `nanoTime`
 - **(2026-11-22) Service `deleteAccount(int mno)`의 반환형은 뭘로?**
   → **`void` 추천.** Service 반환값은 "Controller가 다음 화면을 그리는 데 필요한 것"이다. 탈퇴 후 Controller는 세션을 끊고 redirect만 하므로 줄 값이 없다. 실패는 반환값(0, -1)이 아니라 **예외**로 알린다 (M3 `ForbiddenException`과 같은 원칙, 4-2·4-3의 rollback도 예외가 있어야 동작한다). 지운 리뷰 개수 같은 정보는 Service 안의 `log.info`로 남긴다. DAO가 `int`(행 수)를 돌려주는 것과 Service의 반환형은 별개다. 참고: `public deleteAccount(int mno);`처럼 반환형을 비우면 컴파일 에러("Return type for the method is missing")가 난다. 샘플 FW_07 `MemberService.delete`도 `void`.
 
@@ -724,7 +743,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
     - (2026-11-22) **교육생 요청으로 튜터가 수정**: `@Test deleteAccount_failInMiddle_rollbackAll` 새로 만듦(`assertThrows(ArithmeticException)` → 회원·리뷰1·리뷰2 `assertNotNull` + 메시지), 리뷰 builder에 `.mno(m.getMno())`, `@AfterEach`를 DAO 정리 전용으로(`deleteByMno` → `delete`), import 정리, 클래스 위에 `@Transactional`을 붙이지 않는 이유 주석, Service `1/0` 위에 TODO 주석
     - 실행 결과: `MemberWithdrawTest.java:76 리뷰1이 남아 있어야 한다 ==> expected: not <null>` → **회원은 남았는데 리뷰가 사라짐 = Q1에서 예상한 상태**. 회원 assert(75행)는 통과하고 리뷰에서 실패. 두 번 연속 실행해도 같은 실패(Duplicate 없음) → `@AfterEach` 정리 정상 **트랜잭션 없이 실패 재현** (리뷰만 지워짐) → 테스트로 확인
 - [x] 4-3 ✅ (2026-11-22) ← 개념 Q 2개 답함 (2026-11-22). ✅ 교육생이 `deleteAccount` 메서드 위에 `@Transactional`(Spring import) → `1/0` 그대로 둔 채 🟢 통과(튜터 mvnw 재확인, `회원 탈퇴 완료` 로그 안 찍힘). 교육생이 `1/0` 제거(TODO 주석 한 줄은 남음 💅). **교육생 요청으로 튜터가** `deleteAccount_success`(회원·리뷰 `assertNull`) 추가 + 실패 테스트에 `@Disabled("실험용...")`. 전체 `mvnw test` 18개 중 17 통과·1 Skipped, 로그 `회원 탈퇴 완료: 회원번호=46 삭제된 리뷰 수=2`. `@Transactional`로 해결 → 같은 테스트 통과
-- [ ] 4-4 Service 실행 시간 측정 `@Around` Aspect (`spring-boot-starter-aspectj` 의존성 확인)
+- [x] 4-4 ✅ (2026-11-22) ← **교육생 요청으로 튜터가 Aspect 수정**: Pointcut `service.*.*(..)`, `public`, `start`는 try 밖 + `try { return proceed(); } finally { end·log.debug }`(catch 없음 → 예외 그대로 전파), `{}` 두 개 + `toShortString()`. 결과: 전체 18개 중 17 통과·1 Skipped, `MemberServiceImpl.signUp(..) 실행 시간 = 8ms` 등. MemberServiceTest에서 signUp 7회·login 3회 = **예외가 난 호출(중복 이메일, 틀린 이메일·비밀번호)도 시간 로그가 찍힘** → finally 효과 확인. ② Aspect 1차 리뷰 (2026-11-22): ✅ `aop` 패키지, `@Aspect @Component @Slf4j`, `ProceedingJoinPoint`·`Object`·`throws Throwable`, 지역 변수 start/end, `proceed()` 결과 받아서 `return`. 🔴 Pointcut `service.*...(..)` → 에러 없이 **아무 메서드에도 안 걸림**(MemberServiceTest 초록, Service 로그는 찍히는데 시간 로그 0줄) — 메서드 이름 자리가 `*`여야 함 / 🟡 예외 시 시간 로그 안 남음 → 교안생 결정: **예외가 나도 측정하겠다** (가이드: `try { proceed·return } finally { end·log }`, `start`는 try 밖, catch로 예외를 삼키지 않기 — 선택: `catch (Throwable e) { 실패 표시 로그; throw e; }`) / 💅 문자열 `+`와 `{}` 섞어 씀 → `{}` 두 개, `"실행 시간"` 앞 공백, 메서드 `public`(교안 관례). ① 의존성 ✅ (2026-11-22, `<version>` 없이 추가, aspectjweaver 1.9.25.1 받음) · 개념 Q 2개 답함, 요구사항 제시 (2026-11-22: pom `spring-boot-starter-aspectj` + Maven Update, `aop` 패키지에 `@Aspect @Component @Slf4j` 클래스, `@Around(execution 직접 작성)`, `ProceedingJoinPoint`·`Object` 반환·`throws Throwable`, `proceed()` 호출·반환, 예외가 나도 시간 로그 → try/finally 고민, 실행 결과 확인) ( 튜터가 교안 [스프링_AOP_정리] 1~6장·FW_04 확인, pom에 `spring-boot-starter-aspectj` 없음) Service 실행 시간 측정 `@Around` Aspect (`spring-boot-starter-aspectj` 의존성 확인)
 - [ ] 4-5 M3의 로그인 검사 중복(write GET·POST, delete, edit GET·POST 5곳) → "한 곳으로 모으는 방법" 토론 (Interceptor는 👀 설명만)
 - [ ] 셀프 체크: 같은 클래스 내부 호출에서 `@Transactional`이 안 먹는 이유 / checked 예외면 롤백될까?
 - [ ] 완료 기준: 탈퇴 테스트가 `@Transactional` 없이는 실패, 붙이면 통과 + 로그에 Service 실행 시간
