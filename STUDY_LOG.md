@@ -855,18 +855,38 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ---
 
-## M6. Interceptor — ⏸️ 보류 (2026-11-22, 교육생 결정으로 넘어감)
+## M6. Interceptor — ✅ 완료 (2026-11-24 · 11-22 보류 → 11-23 재개) · [Notion](https://app.notion.com/p/4226412b0acd8190b882faa5995e9911)
 
 ### ✅ 한 일
 
+- (2026-11-24) **브라우저 확인 5가지 통과**(교육생 확인) → **M6 완료**. PLAN 체크, Notion 업로드
+- (2026-11-23) 교육생 요청으로 M6 재개. 로컬이 원격보다 11커밋 뒤처져 있어 M3 수정 초안을 `git stash`("M3 edit draft (superseded by origin)")로 보관 후 `git pull` → 최신 상태에서 6-1부터 다시 시작
+- (2026-11-24) **6-3 `ReviewController` 정리 → 리뷰 통과**: 5곳 `if (loginUser == null)` 삭제, 작성 GET은 `HttpSession` 파라미터·꺼내는 줄까지 삭제(`reviewForm()`), 나머지 4곳은 mno용 꺼내는 줄 유지. 6-1 💅 로그 문구 + `{}` 완료. 전체 테스트 28개(1 Skipped) 🟢, `ReviewControllerTest` ② 테스트 수정 없이 통과 = 이제 Interceptor가 막음. 💅 `Ctrl+Shift+F` 포맷터가 99~100행 주석을 둘로 쪼갬
+- (2026-11-24) **6-2 `WebConfig` 등록 → 리뷰 통과**: `private final LoginCheckInterceptor` + `@RequiredArgsConstructor`(`@Value` 필드는 non-final이라 생성자 대상 아님), `addInterceptors` → `addPathPatterns("/review/write", "/review/*/edit", "/review/*/delete")` = `ReviewController` 매핑(60·70·100·120·142행)과 정확히 일치, 목록·상세 제외. 6-1 💅 import 정리 완료(로그 문구는 아직). 전체 테스트 28개 중 `MemberDaoTest.selectByEmailTest` 1개 Error(아래 🛠️, M6와 무관)
+- (2026-11-24) **6-1 `LoginCheckInterceptor` 작성 → 1차 리뷰 통과**: 명세 8개 모두 충족, 지난번 실수 3개(세션 null만 검사·`/Member` 대문자·`super.preHandle`) 모두 해결. 💅 안 쓰는 import 3줄, 로그 형식만 남음
+- (2026-11-23) 교육생 요청으로 **개념 설명부터 다시**: 왜(중복 5곳) → 요청 흐름 속 위치 → 메서드 3개 → `preHandle` true/false + 직접 응답 → 등록(`addInterceptors`) + 경로 패턴 → Filter·AOP·Service 검사와의 역할 구분 → 확인 Q 3개 (교육생: 질문은 건너뛰고 바로 작성 시작 → 6-1~6-3 명세 제시)
+
 ### 📚 배운 개념
+
+- **Interceptor = Controller 앞 검문소**: 중복된 로그인 검사(횡단 관심사)를 한 곳에 모으고 `addPathPatterns`로 세울 주소만 정함. DispatcherServlet이 직접 호출(`preHandle` → Controller → `postHandle` → View → `afterCompletion`). `preHandle` false면 응답을 **직접** 만들어야 함(redirect)
+- **세션**: `getSession(false)`는 없으면 null(만들지 않음) → null 검사 먼저(`||` short-circuit). 세션이 있다 ≠ 로그인 → `loginUser`까지 확인. 세션은 브라우저마다 하나(`JSESSIONID`), Interceptor 빈은 싱글톤(필드에 사용자 정보 X)
+- **`WebMvcConfigurer`**: 콜백 인터페이스(`default` 메서드). 빈이기만 하면 MVC가 `List`로 전부 받아 호출 → 여러 개면 누적. `@EnableWebMvc` 붙이지 않기
+- **반복 가능한 테스트**: 테스트가 데이터를 직접 만들고(Given) `@Transactional` rollback, AUTO_INCREMENT는 `getMno()`와 비교
 
 ### 🙋 내 답변과 피드백
 
 | 질문 | 내 답 | 피드백 |
 |---|---|---|
+| ① `preHandle`이 redirect 없이 false만 반환하면? | 빈 페이지로 이동한다 | ⭕ 거의 정답. 정확히는 "이동"이 아니라 **주소는 그대로, 내용 없는 200 응답**(Controller도 안 돌고 아무도 응답을 안 씀) → 그래서 막을 때는 `sendRedirect` 등으로 응답을 **직접** 만들어야 함 |
+| ② 왜 `/review/**`가 아니라 세 경로만? | 다른 경로는 로그인이 필요 없는 서비스라서 | ⭕ 정답. 목록·상세는 비로그인도 봐야 함. 보충: 트레이드오프 — 새 로그인 필요 기능을 추가하면 경로도 추가해야 함(잊으면 무방비). 대안: `/review/**` + `excludePathPatterns("/review/list", ...)` |
+| ③ 6-3에서 `loginUser` 꺼내는 줄은 왜 남기나? | 로그인 정보를 서비스에 넘겨야 해서 | ⭕ 정답. 보충: 작성자 mno는 폼이 아니라 **세션에서**(M3 hidden 사칭 방지), Service 작성자 검사에 씀. Interceptor는 "있나?"만 보고 값을 넘겨주지 않음. Interceptor가 null이 아님을 보장하므로 검사 없이 꺼내도 안전 |
+| ④-a 조건 순서를 바꾸면? | 모르겠어 | 설명함: 세션 없는 첫 방문자 → `null.getAttribute()` → **NPE → 500**. `\|\|`는 왼쪽이 true면 오른쪽을 실행하지 않음(short-circuit) → null 검사가 앞이어야 보호막 |
+| ④-b `@Transactional` 빼고 두 번 실행하면? | 모르겠어 | 설명함: 1회차 insert가 **커밋**돼 DB에 남음 → 2회차 같은 이메일 insert → `email UNIQUE` 위반 `DuplicateKeyException` → 실패. 테스트 쓰레기 데이터도 남음. rollback = **몇 번 돌려도 같은 결과**(반복 가능한 테스트) |
+| ④-c `ImageStorage` 2개는 에러, `WebMvcConfigurer` 2개는 정상인 이유 한 문장 | 모르겠어 | 설명함: "받는 쪽이 **하나**를 원하면 고를 수 없어 에러, **전부(List)**를 원하면 다 주면 되니 정상" |
 
 ### 🛠️ 트러블슈팅
+
+- (2026-11-24) 6-2 후 전체 테스트: `MemberDaoTest.selectByEmailTest:59` NPE(`m1` is null). 원인은 Interceptor가 아니라 **DB 데이터**: 현재 `matzip.member`에 mno 1(`woook43`)·24(test)만 있고 테스트가 기대하는 `kim@matzip.com`(mno=1, `schema.sql` 32행 테스트 데이터)이 없음. 교훈: **DB에 이미 있는 데이터에 기대는 테스트는 환경이 바뀌면 깨진다** → 테스트 안에서 insert 후 조회하는 방식이 안전(`@Transactional` rollback). 처리 방법은 교육생이 결정 → ② 선택, 튜터가 Given-When-Then으로 고쳐 작성(교육생 요청) → 🟢
 
 ### ❓ 내가 한 질문
 
@@ -874,21 +894,46 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   → "Controller 앞에 서 있는 **검문소**". DispatcherServlet이 요청에 맞는 Controller 메서드를 찾은 뒤, **부르기 직전**(`preHandle`)과 끝난 뒤(`postHandle`·`afterCompletion`)에 먼저 들르는 Spring 객체. 통과(`true`)면 Controller로, 막으면(`false`) Controller는 실행조차 안 됨. 왜 필요? 지금 Controller 5곳에 같은 "로그인 했나?" 코드가 복사돼 있음(횡단 관심사) → 검문소 하나에 모으고 어느 주소에 세울지(`addPathPatterns`)만 정하면 됨. 비교: Servlet Filter(같은 아이디어, 하지만 Spring 바깥·DispatcherServlet 앞) / AOP(빈 메서드 단위, HTTP 모름) / `@ControllerAdvice`(Controller가 **던진 예외** 처리 = 나간 뒤) vs Interceptor(Controller **들어가기 전** 검사). 등록은 `WebConfig.addInterceptors`
 - **(2026-11-22) Interceptor도 AOP 느낌인가?**
   → **생각(목적)은 같다, 동작 방식은 다르다.** 공통: 횡단 관심사를 한 곳에 모으고 대상 코드는 손대지 않음 = AOP의 "관점" 아이디어(교안 AOP 1장 호텔 팻말 비유). 차이: Spring AOP는 **프록시**가 빈 메서드 호출을 가로챔(Pointcut = 메서드 시그니처, HTTP 모름) / Interceptor는 프록시 없이 **DispatcherServlet이 직접** 등록된 목록을 순서대로 호출(HandlerExecutionChain, 대상 = URL 패턴, request·response·handler 사용). 그래서 Interceptor는 Controller 앞에만, AOP는 아무 빈에나. `afterCompletion`은 `@After`, `preHandle`의 false는 `@Before`에서 예외로 막는 것과 비슷
+- **(2026-11-24) `request.getSession(false)`의 false는 무슨 의미?**
+  → 인자 `create`는 "세션이 없으면 새로 만들까?"라는 뜻. `getSession()` = `getSession(true)`: 없으면 **새 세션 생성**(+ `JSESSIONID` 쿠키 발급) / `getSession(false)`: 있으면 그 세션, 없으면 **null 반환, 만들지 않음**. Interceptor는 "로그인 했나?"를 **확인만** 하는 곳 → 비로그인 방문자마다 빈 세션을 만들면 서버 메모리 낭비이고 의미도 없음 → false. 대신 null이 올 수 있으므로 `session == null`을 **먼저** 검사(`||` short-circuit, 순서를 바꾸면 NPE). 다만 이 앱은 JSP가 기본으로 세션을 만들어서 비로그인이어도 세션이 있을 수 있음 → `loginUser` 속성까지 확인해야 함(지난번 실수). 대비: 로그인 처리(`MemberController`)는 `loginUser`를 **저장**해야 하므로 세션을 만드는 쪽이 맞음. 참고로 Controller 파라미터에 `HttpSession`을 받으면 Spring은 `getSession()`(true)으로 꺼내 준다
+- **(2026-11-24) 여러 사람이 접속하는데 `session.getAttribute("loginUser")`에 여러 사람의 로그인 정보가 다 들어 있는 것 아닌가?**
+  → 아니다. **세션은 사람(브라우저)마다 하나씩** 따로 있다. 비유: 옷 보관소. 서버(Tomcat)는 `세션ID → 세션 객체` 표를 들고 있고, 각 세션 객체 안에 **그 사람 전용** 속성 보관함이 있음. 첫 접속 때 세션을 만들며 `JSESSIONID` 쿠키(번호표)를 브라우저에 줌 → 이후 요청마다 브라우저가 번호표를 같이 보냄 → `request.getSession(false)`는 **이 요청의 번호표에 맞는 세션 하나**만 찾아 줌 → 그 안의 `loginUser` = 지금 요청한 사람 것. 그래서 키 이름(`"loginUser"`)은 모두 같아도 값은 사람마다 다름. 모두가 공유하는 저장소는 **application 스코프**(`ServletContext`, Servlet/JSP 4대 스코프 복습: page·request·session·application). 확인 방법: 일반 창에서 로그인 + 시크릿 창에서 같은 주소 → 시크릿 창은 비로그인(쿠키가 다름 = 세션이 다름). 주의: 반대로 **Interceptor 빈은 싱글톤이라 모든 사람이 공유** → 사용자 정보를 Interceptor **필드**에 저장하면 진짜로 섞임. 사용자 정보는 지역 변수·세션에
+- **(2026-11-24) `WebMvcConfigurer`는 어떤 객체인가?**
+  → 객체가 아니라 **인터페이스**(설정용 콜백). 메서드가 전부 `default`(빈 구현)라 필요한 것만 오버라이드. Boot의 MVC 자동 설정(`WebMvcAutoConfiguration` → `DelegatingWebMvcConfiguration`)이 앱 시작 때 **이 인터페이스를 구현한 빈을 모두 찾아** 각 메서드를 호출하며 등록부(`registry`)를 넘겨줌 → 우리는 그 등록부에 "덧붙이기"만 함(IoC: 내가 부르는 게 아니라 Spring이 부름). 그래서 `WebConfig`는 `@Configuration`(빈) + `implements WebMvcConfigurer`. M5에서 쓴 `addResourceHandlers`, 이번 `addInterceptors` 외에 `addViewControllers`·`addCorsMappings`·`addFormatters` 등. 주의: `@EnableWebMvc`를 붙이면 Boot 자동 설정이 꺼져 JSP·정적 리소스 설정을 직접 다 해야 함 → 붙이지 않는다
+- **(2026-11-24) `WebMvcConfigurer`를 구현한 클래스는 따로 등록 안 해도 되나?**
+  → "MVC에 따로 알려 주는 등록"은 필요 없다. 조건은 딱 하나: **빈이어야 함**. `@Configuration`은 안에 `@Component`를 품은 애너테이션 → `MatzipNoteApplication`의 `@SpringBootApplication`(= `@ComponentScan`)이 `com.study.matzip` 하위를 스캔하며 빈으로 등록 → MVC 자동 설정이 "`WebMvcConfigurer` 타입 빈 전부"를 주입받아 메서드 호출. 즉 등록은 **컴포넌트 스캔이 대신** 해 줌(M1·M5 DI와 같은 원리). 안 되는 경우: 애너테이션을 빼거나, 기본 패키지 **바깥**에 두면 스캔 대상이 아니라 설정이 조용히 무시됨(에러 없음!). 용어: 인터페이스는 상속(`extends`)이 아니라 **구현**(`implements`). 실험 제안: `@Configuration`을 잠깐 주석 처리 → 시작 로그의 "업로드 폴더 매핑" 줄이 사라지고 사진이 안 보임
+- **(2026-11-24) `WebConfig1`, `WebConfig2` 두 개를 만들면?**
+  → **둘 다 적용된다(에러 없음).** MVC 자동 설정은 `WebMvcConfigurer`를 1개가 아니라 **`List`로 전부** 주입받아(`WebMvcConfigurerComposite`) 각각의 메서드를 차례로 호출 → 같은 등록부에 **누적**. M5 `ImageStorage` 빈 2개 → `NoUniqueBeanDefinitionException`과 비교: 그때는 **한 개**를 달라고 했고, 이번엔 **전부** 달라고 하니 여러 개가 정상. 사실 이미 여러 개다: Boot 자체도 내부에 `WebMvcConfigurer`(JSP ViewResolver·정적 리소스 기본값)를 갖고 있고 우리 `WebConfig`가 거기 덧붙는 것. 주의: ① 둘 다 Interceptor를 등록하면 **실행 순서**가 클래스 순서에 좌우됨 → 순서가 중요하면 `@Order` 또는 등록 시 `.order()` ② 같은 경로를 두 곳에서 설정하면 어느 쪽이 이길지 헷갈림 → 역할별로 나누되 겹치지 않게 ③ 다른 패키지라도 **클래스 이름이 같으면** 빈 이름 충돌(`ConflictingBeanDefinitionException`). 실무에선 `WebConfig`(리소스) / `InterceptorConfig`처럼 나누기도 함. 맛집 노트는 하나로 충분
+- **(2026-11-24) Interceptor는 DispatcherServlet과 Controller 사이에서 작동하죠?**
+  → ⭕ 위치는 맞다. 정확히는 둘 사이에 **따로 끼어 있는 층이 아니라 DispatcherServlet이 직접 호출**(Filter는 Tomcat이 DispatcherServlet **앞**에서 호출). 흐름: 요청 → Filter → DispatcherServlet → HandlerMapping(어느 Controller 메서드인지 + 걸린 Interceptor 목록 = HandlerExecutionChain) → **`preHandle`** → HandlerAdapter → Controller → **`postHandle`** → View(JSP) 렌더링 → **`afterCompletion`**(예외가 나도 호출). 그래서 Interceptor는 ① 어느 Controller 메서드가 불릴지 안다(`Object handler` 파라미터) ② Spring 안이라 빈 주입 가능 ③ `preHandle`에서 던진 예외도 DispatcherServlet의 예외 처리 → `@ControllerAdvice`가 받을 수 있음. Filter는 셋 다 안 됨(DispatcherServlet 밖)
 
 ### ⏭️ 남은 일
 
-- [ ] 6-1 🔍 (2026-11-22 1차 리뷰, 컴파일 OK) ✅ `@Component` + `implements HandlerInterceptor`, `preHandle`만, jakarta import, `getSession(false)`, `getContextPath()` + redirect + `return false`. 🔴 `session == null`만 검사 → 로그아웃 후에도 JSP가 기본으로 세션을 만들어서(`<%@ page session="true"%>` 기본값) **거의 항상 통과** → `loginUser` 속성까지 확인 / 🔴 `/Member/login`(대문자 M) → URL은 대소문자 구분 → 404 / 💅 주석 처리된 `return` 줄 삭제. (참고: WebConfig `addPathPatterns("/review/..")`는 Pointcut의 `..` 문법이라 ANT 패턴에선 글자 그대로 → 아무 주소에도 안 걸림) `LoginCheckInterceptor`(`preHandle`: 세션 `loginUser` 없으면 `sendRedirect(contextPath + "/member/login")` + `return false`) ← 교안 설명 + 확인 Q 1개 + 요구사항 제시 (2026-11-22, 교안 [Interceptor] 1~6·8장 확인)
-- [ ] 6-2 🔍 `WebConfig.addInterceptors` 등록 + `addPathPatterns("/review/write", "/review/*/edit", "/review/*/delete")`
-- [ ] 6-3 🔍 `ReviewController` 5곳의 `if (loginUser == null)` 블록 삭제 (`loginUser`를 꺼내는 줄은 mno 때문에 유지) → 전체 테스트 + 브라우저 확인
-- [ ] 셀프 체크: `preHandle`이 false를 반환하면 무엇을 직접 해 줘야 할까?
-- [ ] 완료 기준: Controller에 로그인 검사 코드 없이 비로그인 작성·수정·삭제 → 로그인 화면, 목록·상세는 그대로, 전체 테스트 통과
+- [x] 개념 설명 다시 (2026-11-23) — 확인 Q 3개는 교육생이 건너뜀 → 리뷰 때 셀프 체크로 물어보기
+- [x] **6-1 🔍 `config/LoginCheckInterceptor`** (2026-11-24 1차 리뷰 통과, 컴파일 OK) — 💅 남은 정리 2개: 안 쓰는 import 3줄(`Nullable`·`ModelAndView`·`Member`, `Ctrl+Shift+O`) / 로그를 `{}` 자리표시자 + 설명 문구로
+  - 명세: ① 빈 등록 애너테이션 ② `@Slf4j` ③ `preHandle`만 오버라이드(jakarta import) ④ `getSession(false)` ⑤ 세션 null **||** `loginUser` 속성 null (순서 = short-circuit) ⑥ 막을 때 로그(`getRequestURI()`) → `response.sendRedirect` → `return false` ⑦ 주소 = `getContextPath()` + `/member/login`(소문자) ⑧ 통과 `return true`
+  - 지난번(11-22) 실수: `session == null`만 검사(JSP가 세션을 기본 생성 → 항상 통과), `/Member` 대문자, 자동 생성 `super.preHandle` 줄
+- [x] **(끼어든 일) `MemberDaoTest.selectByEmailTest` 고치기** — ✅ 2026-11-24 **교육생 요청으로 튜터가 작성**, 전체 28개(1 Skipped) 초록, DB에 테스트 이메일 안 남음(rollback 확인). 💅 32·38행 `Member.builder()`로 교육생이 정리 완료. ← 교육생 선택 ② "테스트가 직접 insert 후 조회" (2026-11-24 가이드 제시)
+  - 가이드: Given(테스트 전용 이메일로 `Member` 만들어 `insert`) → When(`selectByEmail(같은 이메일)`) → Then(`assertNotNull`, `mno`는 **숫자 1이 아니라 insert 후 채워진 `getMno()`와 비교**(`useGeneratedKeys`), email·name 비교) + 없는 이메일 → `assertNull`. 클래스 `@Transactional`이라 rollback. 💅 `new Member().builder()` → `Member.builder()`(static)
+- [x] 6-2 🔍 (2026-11-24 리뷰 통과) `WebConfig`에 생성자 주입(`final` + `@RequiredArgsConstructor`, `@Value` 필드는 그대로) + `addInterceptors` → `addPathPatterns("/review/write", "/review/*/edit", "/review/*/delete")` (`/review/**` 전체 X: 목록·상세는 비로그인도 봄, `..` 쓰지 않기)
+- [x] 6-3 🔍 (2026-11-24 리뷰 통과) `ReviewController` 5곳(작성 GET 62·POST 76, 삭제 102, 수정 GET 122·POST 149행)의 `if (loginUser == null)` 블록 삭제. `loginUser` 꺼내는 줄은 mno 때문에 유지, 단 작성 GET은 꺼내는 줄·`HttpSession` 파라미터까지 정리
+- [x] (2026-11-24) 확인: 전체 JUnit 통과(`ReviewControllerTest` ② `write_notLoggedIn_redirectToLogin` 수정 없이 통과해야 함) + 브라우저 5가지(비로그인 목록·상세 보임 / 비로그인 `/review/write`·`/review/1/edit` → 로그인 화면 + 로그 / 로그인 후 작성·수정·삭제 정상 / test 계정 남의 글 삭제 → 여전히 Service가 차단)
+- [x] 셀프 체크 (2026-11-24 ①②③ 정답, ④ 설명) ① `preHandle`이 false만 반환하면? (빈 화면 → 응답 직접) ② 어느 URL에 걸고 왜 `/review/**`가 아닌가? ③ 꺼내는 줄은 왜 남기나? (작성자 mno)
+- [x] M6 완료 → PLAN 체크 + Notion [`M6. Interceptor`](https://app.notion.com/p/4226412b0acd8190b882faa5995e9911) 업로드 + 챕터 제목에 링크 (2026-11-24)
+- [ ] (선택) 👀 `postHandle`·`afterCompletion` 활용, 여러 Interceptor 순서 / `handler` 로그 찍어 보기 / 💅 `ReviewController` 99~100행 쪼개진 주석
 
 ### 📌 다음 세션 시작점
 
-**M6 보류 (2026-11-22)**: 교육생이 "Interceptor 파트는 넘어가겠다"고 결정. 개념 설명(검문소 비유, AOP와 비교)까지 완료, 구현은 1차 리뷰에서 멈춤.
-- 현재 코드 상태: `config/LoginCheckInterceptor`(🔴 `session == null`만 검사, `/Member/login` 대문자) + `WebConfig.addInterceptors("/review/..")`(어느 주소에도 안 걸림) → **실제로는 아무것도 막지 않아 앱 동작에 영향 없음**. Controller 5곳의 로그인 검사는 그대로 동작. 전체 테스트 24개(1 Skipped) 통과 확인
-- (2026-11-22) **교육생 요청으로 되돌림**: `LoginCheckInterceptor.java` 삭제, `WebConfig` M5 상태로 복구(`git checkout`), 컴파일 OK
-- 다시 할 때: ① `loginUser` 속성까지 검사 ② `/member/login` 소문자 ③ 패턴 `/review/write`, `/review/*/edit`, `/review/*/delete` ④ Controller 5곳 정리
+**M6 완료 ✅ (2026-11-24) → 맛집 노트 M1~M7 전체 완료.** 다음은 선택 과제(M7 📌의 목록 + 위 ⏭️ 선택) 또는 새 샘플 zip(`FW_09`·`FW_10`·`FW_11`·`FW_13`·`FW_14`) 확인 후 다음 계획 정하기
+- 현재 코드 상태: 로그인 검사는 Interceptor 한 곳에만. Controller 검사 코드 없음. 전체 테스트 28개(1 Skipped) 🟢
+- 커밋 여부는 교육생에게 확인 중
+- `MemberDaoTest.selectByEmailTest` 해결(직접 insert 후 조회) → 전체 테스트 28개(1 Skipped) 통과
+- STS 팁 안내함: `New > Class`의 Interfaces `Add...`로 `HandlerInterceptor`, 클래스 안 `pre` + `Ctrl+Space`로 `preHandle` 오버라이드
+- git: M3 수정 초안(원격 완성본으로 대체됨)은 `git stash`의 "M3 edit draft (superseded by origin)"에 보관 — 필요 없으면 `git stash drop`
+- 테스트 계정: `test@gmail.com`(mno=24)
+
+#### (지난) 2026-11-22 보류 시점 기록
+**M6 보류 (2026-11-22)**: 교육생이 "Interceptor 파트는 넘어가겠다"고 결정. 개념 설명(검문소 비유, AOP와 비교)까지 완료, 구현은 1차 리뷰에서 멈춤. 이후 교육생 요청으로 `LoginCheckInterceptor.java` 삭제, `WebConfig` M5 상태로 복구. 1차 리뷰 내용: ✅ `@Component`·`preHandle`만·jakarta import·`getSession(false)`·`getContextPath()` + redirect + `return false` / 🔴 `session == null`만 검사 / 🔴 `/Member/login` 대문자 / WebConfig `"/review/.."`(Pointcut 문법 → 아무 주소에도 안 걸림)
 
 ---
 

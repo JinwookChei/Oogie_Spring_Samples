@@ -4,16 +4,21 @@ import java.nio.file.Path;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 // Spring MVC 기본 설정에 "덧붙이기" 위한 설정 클래스 (필요한 메서드만 오버라이드)
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
+	private final LoginCheckInterceptor loginChecker;
+	
 	// LocalImageStorage와 같은 키 → 저장하는 폴더 = 보여 주는 폴더
 	@Value("${app.upload.path}")
 	private String uploadPath;
@@ -30,5 +35,12 @@ public class WebConfig implements WebMvcConfigurer {
 
 		registry.addResourceHandler("/upload/**")   // 화면에서 쓰는 URL
 				.addResourceLocations(location);     // 실제 디스크 위치
+	}
+	
+	@Override
+	public void addInterceptors(InterceptorRegistry registry) {
+		registry.addInterceptor(loginChecker).addPathPatterns(
+				"/review/write", "/review/*/edit", "/review/*/delete"
+				);
 	}
 }

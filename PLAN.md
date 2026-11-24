@@ -165,12 +165,12 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
-### M6. Interceptor 🔍 · 약 1시간 (시간 빠듯 → 핵심만) — ⏸️ 보류 (2026-11-22, 개념 설명까지 완료)
+### M6. Interceptor 🔍 · 약 1시간 (시간 빠듯 → 핵심만) — ✅ 완료 (2026-11-24)
 교안: Interceptor (Notion) · 샘플: 없음 (교안 TODO 06·07 기준)
 
-- [ ] 🔍 `LoginCheckInterceptor implements HandlerInterceptor`: `preHandle`에서 세션 `loginUser` 확인 → 없으면 `sendRedirect` + `return false`
-- [ ] 🔍 `WebConfig.addInterceptors`에 등록, `addPathPatterns`로 리뷰 작성·수정·삭제만
-- [ ] 🔍 Controller 5곳의 로그인 검사 제거 → 전체 테스트 통과 확인 (`ReviewControllerTest` ② 비로그인 작성 테스트가 그대로 통과해야 함)
+- [x] 🔍 `LoginCheckInterceptor implements HandlerInterceptor`: `preHandle`에서 세션 `loginUser` 확인 → 없으면 `sendRedirect` + `return false`
+- [x] 🔍 `WebConfig.addInterceptors`에 등록, `addPathPatterns`로 리뷰 작성·수정·삭제만
+- [x] 🔍 Controller 5곳의 로그인 검사 제거 → 전체 테스트 통과 확인 (`ReviewControllerTest` ② 비로그인 작성 테스트가 그대로 통과해야 함)
 - 👀 (설명만) `postHandle`·`afterCompletion`, 여러 Interceptor 순서, `addViewControllers`, Filter vs Interceptor vs AOP
 
 **셀프 체크**: `preHandle`이 false를 반환하면 무엇을 직접 해 줘야 할까?
@@ -227,3 +227,5 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-22 | 계획 축소 | 교육생 시간 빠듯 → M6 약 1시간(Interceptor 등록·로그인 검사 제거만), M7 약 2시간(상세·작성 API + ProblemDetail 404 + jsonPath 테스트만, 나머지는 👀 설명) |
 | 2026-11-22 | M6 보류 | Interceptor 개념(검문소 비유, Filter·AOP·ControllerAdvice와 위치 비교) 설명 후 교육생 결정으로 구현은 넘어감. 작성 중이던 `LoginCheckInterceptor`는 패턴이 어느 주소에도 안 걸려 동작 영향 없음. **다음: M7 REST API** |
 | 2026-11-22 | **M7 완료 — 맛집 노트 실습 종료** (M6 보류) | `restcontroller/ReviewRestController`(`/api/review` 상세 GET 200·작성 POST 201, 세션 mno), `config/RestExceptionHandler`(`basePackageClasses` + `@Order`, 404·500 `ProblemDetail`), `ReviewRestControllerTest` 4개. 테스트가 Jackson 3 역직렬화 버그(`Cannot map null into type int`, POST 항상 500) 발견 → `spring.jackson.deserialization.fail-on-null-for-primitives=false`. 전체 테스트 28개(1 Skipped). Notion 업로드. 셀프 체크는 튜터 설명 |
+| 2026-11-23 | M6 재개 | 교육생 요청으로 Interceptor 다시 시작. 로컬이 원격보다 11커밋 뒤처짐 → M3 초안 stash 후 pull. 개념 설명 다시(흐름 속 위치, 메서드 3개, preHandle false + 직접 응답, 등록·ANT 패턴, Filter·AOP·Service 검사 구분) + 6-1~6-3 명세 제시. `LoginCheckInterceptor` 작성 막 시작(미완성, 컴파일 에러 상태). **다음: 6-1 작성·리뷰** (`STUDY_LOG.md` 📌 참고) |
+| 2026-11-24 | **M6 완료 — 맛집 노트 M1~M7 전체 완료** | 6-1 `LoginCheckInterceptor`(`getSession(false)` + `loginUser` 검사, redirect + false), 6-2 `WebConfig` 생성자 주입 + `addPathPatterns` 세 경로, 6-3 Controller 5곳 검사 제거. `MemberDaoTest.selectByEmailTest` DB 의존 → 직접 insert 후 조회로 수정(튜터 작성, 교육생 요청). 전체 테스트 28개(1 Skipped), 브라우저 5가지 통과. 질문: 세션 범위, `WebMvcConfigurer` 등록·여러 개, Interceptor 위치. Notion 업로드 |

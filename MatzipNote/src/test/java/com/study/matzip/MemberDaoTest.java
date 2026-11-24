@@ -29,13 +29,13 @@ public class MemberDaoTest {
 	public void insertTest() {
 		assertNotNull(memberDao);
 		
-		Member m1 = new Member().builder()
+		Member m1 = Member.builder()
 				.email("test1@test.com")
 				.password("1111")
 				.name("테스트1")
 				.build();
 		
-		Member m2 = new Member().builder()
+		Member m2 = Member.builder()
 				.email("test2@test.com")
 				.password("1111")
 				.name("테스트2")
@@ -55,11 +55,27 @@ public class MemberDaoTest {
 	@Test
 	public void selectByEmailTest() {
 		assertNotNull(memberDao);
-		Member m1 = memberDao.selectByEmail("kim@matzip.com");
-		assertEquals(1, m1.getMno());
-		log.debug("selectByEmailTest: {}", m1.getMno());
-		
-		Member m2 = memberDao.selectByEmail("test@matzip.com");
-		assertNull(m2);
+
+		// Given: DB에 이미 있는 데이터에 기대지 않고, 이 테스트가 직접 회원을 넣는다 (@Transactional → 끝나면 rollback)
+		Member saved = Member.builder()
+				.email("select-test@matzip-test.com")
+				.password("1111")
+				.name("조회테스트")
+				.build();
+		memberDao.insert(saved);   // useGeneratedKeys → saved.mno에 DB가 만든 번호가 채워짐
+
+		// When: 방금 넣은 이메일로 조회
+		Member found = memberDao.selectByEmail("select-test@matzip-test.com");
+		log.debug("selectByEmailTest: {}", found);
+
+		// Then: AUTO_INCREMENT 번호는 예측할 수 없으므로 숫자 1이 아니라 insert 후 채워진 mno와 비교
+		assertNotNull(found);
+		assertEquals(saved.getMno(), found.getMno());
+		assertEquals(saved.getEmail(), found.getEmail());
+		assertEquals(saved.getName(), found.getName());
+
+		// 없는 이메일 → null (실제로 가입할 일 없는 주소)
+		Member notFound = memberDao.selectByEmail("no-such-user@matzip-test.com");
+		assertNull(notFound);
 	}
 }

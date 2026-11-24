@@ -56,29 +56,18 @@ public class ReviewController {
 		log.info("selectDetail 실행");
 		return "review/detail";
 	}
-	
+
 	@GetMapping("/write")
-	String reviewForm(HttpSession session) {
-		Member loginUser = (Member) session.getAttribute("loginUser");
-		if(loginUser == null) {
-			return "redirect:/member/login";
-		}
-		
+	String reviewForm() {
 		return "review/write";
 	}
-	
+
 	@PostMapping("/write")
-	String writeReview(
-			Review review, 
-			@RequestParam(required = false) MultipartFile image,
-			HttpSession session,
-			RedirectAttributes redirectAttr){
+	String writeReview(Review review, @RequestParam(required = false) MultipartFile image, HttpSession session,
+			RedirectAttributes redirectAttr) {
 		Member loginUser = (Member) session.getAttribute("loginUser");
-		if(loginUser == null) {
-			return "redirect:/member/login";
-		}
-		
 		review.setMno(loginUser.getMno());
+
 		int rno; // 초기값을 넣지 않는다 → catch에서 return을 빠뜨리면 컴파일러가 잡아 준다 (확정 대입)
 		try {
 			rno = reviewService.writeReview(review, image);
@@ -92,26 +81,23 @@ public class ReviewController {
 			redirectAttr.addFlashAttribute("msg", e.getMessage());
 			return "redirect:/review/write"; // flash는 redirect일 때만 다음 요청으로 전달된다
 		}
-			
+
 		redirectAttr.addFlashAttribute("msg", "정상적으로 리뷰가 등록 되었습니다.");
-		return "redirect:/review/"+rno;
+		return "redirect:/review/" + rno;
 	}
-	
+
 	@PostMapping("/{rno}/delete")
-	String deleteReview(@PathVariable int rno, HttpSession session,  RedirectAttributes rediAttr) {
-		Member loginUser = (Member)session.getAttribute("loginUser");
-		if(loginUser == null) {
-			return "redirect:/member/login";
-		}
+	String deleteReview(@PathVariable int rno, HttpSession session, RedirectAttributes rediAttr) {
+		Member loginUser = (Member) session.getAttribute("loginUser");
 		try {
 			reviewService.deleteReview(rno, loginUser.getMno());
-		} 
-		catch (IllegalArgumentException e) {
+		} catch (IllegalArgumentException e) {
 			rediAttr.addFlashAttribute("msg", e.getMessage());
 			return "redirect:/review/list";
 		}
 		// ForbiddenException(남의 리뷰)은 여기서 잡지 않는다
-		// → 메서드 밖으로 던져짐 → MvcExceptionHandler.handleForbidden() → error/403.jsp (상태 코드 403)
+		// → 메서드 밖으로 던져짐 → MvcExceptionHandler.handleForbidden() → error/403.jsp (상태 코드
+		// 403)
 
 		rediAttr.addFlashAttribute("msg", "삭제 완료");
 		return "redirect:/review/list";
@@ -119,38 +105,26 @@ public class ReviewController {
 
 	@GetMapping("/{rno}/edit")
 	String editForm(@PathVariable int rno, HttpSession session, Model model, RedirectAttributes rediAttr) {
-		Member loginUser = (Member)session.getAttribute("loginUser");
-		if(loginUser == null) {
-			return "redirect:/member/login";
-		}
+		Member loginUser = (Member) session.getAttribute("loginUser");
+
 		try {
 			Review review = reviewService.getReviewForEdit(rno, loginUser.getMno());
 			model.addAttribute("review", review);
-		}
-		catch (IllegalArgumentException e) {
+		} catch (IllegalArgumentException e) {
 			rediAttr.addFlashAttribute("msg", e.getMessage());
 			return "redirect:/review/list";
-		}
-		catch (ForbiddenException e) {
+		} catch (ForbiddenException e) {
 			rediAttr.addFlashAttribute("msg", e.getMessage());
-			return "redirect:/review/"+rno;
+			return "redirect:/review/" + rno;
 		}
 
 		return "review/edit";
 	}
 
 	@PostMapping("/{rno}/edit")
-	String editReview(
-			@PathVariable int rno,
-			Review review,
-			@RequestParam(required = false) MultipartFile image,
-			HttpSession session,
-			RedirectAttributes redAttr) {
-		Member loginUser = (Member)session.getAttribute("loginUser");
-		if(loginUser == null) {
-			return "redirect:/member/login";
-		}
-
+	String editReview(@PathVariable int rno, Review review, @RequestParam(required = false) MultipartFile image,
+			HttpSession session, RedirectAttributes redAttr) {
+		Member loginUser = (Member) session.getAttribute("loginUser");
 		review.setRno(rno);
 		try {
 			reviewService.updateReview(loginUser.getMno(), review, image);
