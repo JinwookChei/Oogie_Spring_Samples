@@ -42,6 +42,9 @@ public class ReviewController {
 		return "review/list";
 	}
 
+	// TODO: 8-5. 이 Controller의 try-catch를 하나씩 보고 "여기 남길 것 / Advice로 보낼 것"을 정해서 정리한다.
+	//            판단 기준은 교안 8-5 표. 특히 ForbiddenException catch 2곳(editForm, editReview)은
+	//            M5 셀프 체크 Q1("Advice가 있으면 이 catch는?")의 답을 직접 확인하는 곳이다.
 	@GetMapping("/{rno}")
 	String selectDetail(@PathVariable int rno, Model model) {
 		Review review = null;

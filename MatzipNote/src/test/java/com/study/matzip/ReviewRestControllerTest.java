@@ -1,5 +1,7 @@
 package com.study.matzip;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -93,4 +95,44 @@ public class ReviewRestControllerTest {
 
 		verify(reviewService, never()).writeReview(any(), any());
 	}
+
+	// ======================================================================
+	// M8 목표 테스트 (튜터 세팅, 2026-11-24)
+	// 처음에는 ②⑤⑥이 빨간 불이다 (Advice를 비워 두었기 때문). 8-4·8-6을 마치면 초록 불이 되어야 한다.
+	// ②는 8-4에서 커스텀 예외를 만든 뒤, 가짜 Service가 던지는 예외를 바꿔 줘야 한다 (교육생 수정).
+	// ======================================================================
+
+	// ⑤ 예상 못 한 오류 → 500 ProblemDetail, detail에 내부 정보(SQL 등)가 들어가면 안 된다 (교안 14장 ⚠️)
+	@Test
+	void detail_unexpectedError_500() throws Exception {
+		when(reviewService.selectDetail(1))
+				.thenThrow(new RuntimeException("SQLSyntaxErrorException: Table 'matzip.review' doesn't exist"));
+
+		mockMvc.perform(get("/api/review/1"))
+				.andDo(print())
+				.andExpect(status().isInternalServerError())
+				.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.status").value(500))
+				.andExpect(jsonPath("$.detail", not(containsString("SQL"))));
+	}
+
+	// ⑥ JSON이 아니라 form 형식으로 작성 요청 → 415 ProblemDetail (교안 12장 "어색한 점 찾기")
+	//    힌트: "모든 예외 → 500" 핸들러만 있으면 이 테스트는 몇 번을 받을까?
+	@Test
+	void write_formContentType_415() throws Exception {
+		mockMvc.perform(post("/api/review")
+						.contentType(MediaType.APPLICATION_FORM_URLENCODED)
+						.param("title", "제목")
+						.param("content", "내용")
+						.param("rating", "5"))
+				.andDo(print())
+				.andExpect(status().isUnsupportedMediaType())
+				.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.status").value(415));
+
+		verify(reviewService, never()).writeReview(any(), any());
+	}
+
+	// ⑦ TODO: 8-6-3. (교육생 작성) 남의 리뷰 관련 API에서 ForbiddenException → 403 ProblemDetail
+	//    지금 API에는 수정·삭제가 없다 → 상세(selectDetail)가 ForbiddenException을 던지게 가짜 Service를 설정해서 확인해도 된다
 }

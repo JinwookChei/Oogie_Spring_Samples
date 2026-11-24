@@ -193,13 +193,197 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
+### M8. 예외 처리 다시 보기 🔍 · 약 2~3시간
+교안: **Spring MVC pt.2 Part 3** (Notion 13~19장), **REST API** 12~14장 → 맛집 노트용 실습 안내서 **`guides/M8_예외처리.md`** · 샘플: FW_05·FW_10 `MvcExceptionHandler`·`RestExceptionHandler`·`RecordNotFoundException`
+
+M5·M7에서 튜터가 대부분 써 준 예외 처리를 **비워 놓고 다시 직접** 쓴다. (교육생 요청, 2026-11-24)
+튜터가 세팅해 둔 것: Advice 2개를 TODO 뼈대로 비움, Service·Controller에 `TODO: 8-x` 주석, **목표 테스트 5개**(MVC ③④, REST ⑤⑥ + 기존 ①②가 빨간 불)
+
+- [ ] 👀+🔍 8-1 관찰: Advice 없이 7가지 요청(남의 글 삭제, 없는 리뷰, `/review/abc`, 없는 URL, 405, API를 브라우저로·curl로) → 상태 코드·화면·처리 담당 표 채우기
+- [ ] 🔍 8-2 BasicErrorController: `error/4xx.jsp`, `server.error.include-message` 실험 후 되돌리기, 👀 `ErrorAttributes`
+- [ ] 🔍 8-3 `MvcExceptionHandler`: 범위 지정, 403·500(고정 문구 + 스택 트레이스 로그), `@ResponseStatus` 빼기 실험, `/review/abc`가 몇 번이 되는지 설명
+- [ ] 🔍 8-4 커스텀 예외 `RecordNotFoundException`(샘플 이름) → Service 2곳, 화면 404, `error/404.jsp`에 msg, 테스트 ⑤ 작성 (`IllegalArgumentException`→404 매핑의 문제를 설명할 수 있어야 함)
+- [ ] 🔍 8-5 `ReviewController` try-catch 정리: "사용자가 그 자리에서 고칠 수 있나?" 기준으로 남김/삭제 판단 기록 (M5 ⏭️ Forbidden catch 정리 포함)
+- [ ] 🔍 8-6 `RestExceptionHandler`: 404·403·500·**415**(Exception 핸들러가 Spring 표준 예외를 삼키는 것을 테스트 ⑥으로 재현 후 해결), 테스트 ⑦ 작성, (선택) `code` 필드
+- [ ] 👀 8-7 정리: 전/후 표 비교, git의 M5·M7 코드와 비교, Advice가 잡는/못 잡는 예외(Filter → M13 JWT 연결)
+
+**셀프 체크**: 안내서 6장 14문제 (교안 Part 3 Q + M5·M7에서 "모르겠어"였던 문제 재도전)
+
+**✅ 완료 기준**: 전체 테스트 초록(목표 테스트 + 교육생 작성 ⑤⑦). 남의 글 403, 없는 리뷰 404, 예상 못 한 오류 500이 화면은 에러 JSP로, API는 `ProblemDetail`로 나가고 내부 정보가 노출되지 않는다. Controller에는 "폼으로 돌아가는" catch만 남는다.
+
+---
+
+### M9. Interceptor 심화 🔍 · 약 1~1.5시간
+교안: Interceptor (Notion) 2~4·6·7장 · 샘플: **FW_09** (`LoggingInterceptor`, `MvcConfigurer`, TODO 06·08)
+
+M6에서 👀로 넘긴 `postHandle`·`afterCompletion`과 여러 Interceptor 순서를 **직접 만들어서 콘솔로 확인**한다.
+
+- [ ] 🔍 9-1 `LoggingInterceptor` (교안 TODO 06): `preHandle`에서 요청 URI·메서드 로그 + 시작 시간을 **request 속성**에 저장(필드 X, 싱글톤) → `afterCompletion`에서 처리 시간(ms) + `ex`가 있으면 에러 로그
+- [ ] 🔍 9-2 `handler` 활용: `instanceof HandlerMethod`로 확인한 뒤 "Controller 이름#메서드 이름" 로그 (정적 리소스면 `ResourceHttpRequestHandler`가 온다 → 확인 없이 형변환하면 `ClassCastException`)
+- [ ] 🔍 9-3 `WebConfig` 등록: `LoggingInterceptor`는 전체 요청 + `excludePathPatterns`로 정적 리소스(`/upload/**` 등) 제외. `LoginCheckInterceptor`와의 순서를 `.order()`로 정함
+- [ ] 🔍 9-4 순서 실험: 비로그인으로 `/review/write` → 콘솔에서 `preHandle` 순서, `afterCompletion` **역순**, false 이후 누구의 `afterCompletion`이 불리는지 관찰 (교안 셀프 체크 Q1을 실제로 확인)
+- [ ] 👀 9-5 `addViewControllers` (교안 TODO 08): `MainController.home()`은 View 이름만 반환 → `addViewControllers` 한 줄로 대체할 수 있는지 판단해 보기 (대체하면 `MainController` 삭제. 로그 줄도 사라짐)
+- 👀 (설명만) `postHandle`의 `ModelAndView`(REST면 null), Filter로 할 일 vs Interceptor로 할 일, preflight(OPTIONS) 통과 (M10 CORS와 연결)
+
+**셀프 체크**: 교안 9장 Q1~Q5 (특히 Q3 "시작 시간을 필드에 저장하면?", Q4 "`@ControllerAdvice`가 처리한 예외의 `ex`는?")
+
+**✅ 완료 기준**: 요청마다 콘솔에 "Controller#메서드 + 처리 시간"이 찍히고, 정적 리소스 요청에는 찍히지 않는다. 비로그인 차단 요청에서 Interceptor 호출 순서를 설명할 수 있다. 전체 테스트 통과.
+
+---
+
+### M10. REST API 심화 🔍 · 약 3~4시간
+교안: REST API (Notion) 6·11·14·17·19~35장 · 샘플: **FW_10** (`MvcConfigurer`, `RestExceptionHandler`, `SwaggerConfig`, `EtcRestController`, `BingClient`)
+
+M7에서 만든 `ReviewRestController`(상세·작성)를 **CRUD 전체**로 넓히고, 교안 후반부(Swagger·CORS·RestClient)를 맛집 노트에 붙인다.
+
+**10-1. CRUD 완성 (교안 TODO 04~07)** 🔍
+- [ ] 목록·검색 `GET` → `@ModelAttribute ReviewSearch`(쿼리스트링, body 없음) → 200
+- [ ] 수정 `PUT /{rno}` → `@RequestBody` + 세션 mno → 200 + 수정된 리뷰 (교안 ⚠️: URL에 대상 번호를 넣는다)
+- [ ] 삭제 `DELETE /{rno}` → **204 No Content**
+- [ ] 남의 글 수정·삭제 → **403** `ProblemDetail` 확인 (핸들러는 M8 8-6에서 이미 만듦 → 테스트만 추가)
+- [ ] `ReviewRestControllerTest`에 목록·수정·삭제·403 테스트 추가 (`jsonPath`, `status().isNoContent()`)
+
+**10-2. URL 정리 + API Versioning (교안 6장, TODO 01)** 🔍 짧게
+- [ ] 👀 Spring 7 `configureApiVersioning()` + `usePathSegment(1, ...)` 개념 (교안: "소개에 의의")
+- [ ] 🔍 URL을 교안·샘플 관례대로 `/api/v1/reviews`로 바꾸기 (복수형 + 버전). 테스트의 URL도 같이 수정
+
+**10-3. Swagger (교안 19~24장, TODO 08)** 🔍 설정만
+- [ ] `springdoc-openapi-starter-webmvc-ui` 의존성 추가 (Boot 4 → **3.x** 버전, FW_10 `pom.xml` 참고)
+- [ ] `/swagger-ui/index.html`에서 리뷰 API 목록 확인 → Execute로 실제 호출
+- [ ] 👀 `@Tag`·`@Operation`·`@Schema`로 설명 달기 (`ReviewRestController` 한 곳만)
+
+**10-4. CORS (교안 25·26장, TODO 09)** 👀 + 🔍 한 줄
+- [ ] 👀 SOP와 CORS 개념, preflight
+- [ ] 🔍 `WebConfig.addCorsMappings`로 `/api/v1/**` 허용 (M13에서 Security용 `CorsConfigurationSource`로 옮긴다)
+
+**10-5. RestClient (교안 27~35장, TODO 10·11)** 🔍
+- [ ] 🔍 proxy API `GET /api/v1/etc/bingimage`: `RestClient`로 Bing 오늘의 이미지 조회 → JSON 그대로 반환 (API 키 불필요)
+- [ ] 👀 HTTP Interface(`@GetExchange`)로 정리하는 방식 (교안 31~34장). 원하면 🔍로 바꿔서 빈 등록까지
+- [ ] (선택) 메인 화면(`index.jsp`) 배경에 Bing 이미지 표시 (JSP 최소)
+
+**셀프 체크**: 교안 18·24·35장 ✍️ (+ "GET 검색은 왜 `@RequestBody`가 아닐까?", "남의 서버는 CORS를 내가 못 바꾸는데 어떻게 데이터를 가져올까?")
+
+**✅ 완료 기준**: `/api/v1/reviews`로 리뷰 목록·상세·작성·수정·삭제가 되고(200/201/204), 없는 리뷰 404·남의 글 403이 `ProblemDetail`로 나온다. Swagger UI에서 API를 호출할 수 있고, `/api/v1/etc/bingimage`가 Bing JSON을 돌려준다. 전체 테스트 통과.
+
+---
+
+### M11. Spring Security 기초 🔍 · 약 2~3시간
+교안: **Spring Security pt.1** (Notion, Part A 요약 + Part B 5·6장) · 샘플: **FW_11** (`CustomSecurityConfig`, TODO 02~06)
+
+직접 만든 "세션 + Interceptor 로그인 검사"를 **Security의 필터**가 대신하게 바꾸는 첫 단계. 이번에는 교안대로 **메모리 사용자**로 규칙만 확인하고, DB 회원 연결은 M12에서 한다.
+
+> ⚠️ M11이 끝난 시점에는 앱의 로그인이 **반쯤 바뀐 상태**다 (Security 로그인은 메모리 사용자, Controller는 아직 세션 `loginUser`를 읽음). 브라우저 확인은 M12에서 하고, **M11 → M12는 이어서 진행**한다. 커밋은 M11 단위로 해도 된다(테스트는 통과시킨다).
+
+- [ ] 👀 11-1 개념 (Part A 1~4장): 인증 vs 인가, `SecurityFilterChain`이 DispatcherServlet **앞**(Filter)에 있다는 것, 인증 흐름(`Filter → AuthenticationManager → Provider → UserDetailsService + PasswordEncoder`), `SecurityContext`. Part B 2장(`DelegatingFilterProxy`·`FilterChainProxy`)은 그림만
+- [ ] 🔍 11-2 의존성 (TODO 02): `spring-boot-starter-security`, `spring-security-test`(test), `spring-security-taglibs` → **아무 설정 없이 실행**해서 모든 주소가 로그인 화면으로 가는 것, 콘솔의 `Using generated security password` 확인
+- [ ] 🔍 11-3 `security/config/SecurityConfig` (TODO 03·04): `@EnableWebSecurity` + `PasswordEncoder` 빈(`createDelegatingPasswordEncoder`, `{bcrypt}` 접두사 확인) + 👀 `RoleHierarchy`(`ADMIN > USER`)
+- [ ] 🔍 11-4 메모리 사용자 (TODO 05): `InMemoryUserDetailsManager`로 USER 1명·ADMIN 1명 → `UserDetailsService`로 조회하고 `PasswordEncoder.matches`로 비교하는 테스트 (교안 5-7-3)
+- [ ] 🔍 11-5 `SecurityFilterChain` (TODO 06): 맛집 노트 규칙으로 바꿔 쓰기
+  - 리뷰 작성·수정·삭제(`/review/write`, `/review/*/edit`, `/review/*/delete`) → `hasRole("USER")`
+  - 나머지 → `permitAll()` (`anyRequest()`는 **맨 마지막**, 교안 6-6 순서 주의)
+  - `formLogin`·`logout`을 `Customizer.withDefaults()`로 **다시 켜기** (안 켜면 로그인 화면이 사라진다 — 교안 실수 ②)
+- [ ] 🔍 11-6 `LoginCheckInterceptor` 등록 해제 (TODO 06-2, "SessionInterceptor는 이제 안녕~") → `LoggingInterceptor`(M9)는 그대로 둔다
+- [ ] 🔍 11-7 테스트 (교안 6-8): `SecurityConfigTest`(MockMvc) — 비로그인 `/` 200·`/review/write` **302**, `@WithMockUser(roles="USER")`로 200. 기존 `@WebMvcTest`(`ReviewControllerTest`·`ReviewRestControllerTest`)가 401/302로 깨지면 원인을 보고 고치기 (MVC pt.2 교안 🧓 메모)
+
+**셀프 체크**: 교안 Part A 핵심 정리 9개 (특히 "302 vs 403", "`SecurityFilterChain`을 직접 등록하면 왜 로그인 화면이 사라질까?", "Interceptor로 하던 일을 왜 Filter에서 하게 됐을까?")
+
+**✅ 완료 기준**: 비로그인으로 리뷰 작성 주소에 가면 Security 로그인 화면으로 가고, 테스트로 302/200/403을 확인한다. `LoginCheckInterceptor`는 등록에서 빠졌다. 전체 테스트 통과.
+
+---
+
+### M12. DB 회원으로 Security 로그인 🔍 · 약 3~4시간
+교안: **Spring Security pt.2** (Notion) · 샘플: **FW_11** (`CustomUserDetails`, `CustomUserDetailsService`, TODO 07~13)
+
+M11의 메모리 사용자를 **맛집 노트 `member` 테이블**로 바꾸고, Controller·JSP가 세션 `loginUser` 대신 Security의 로그인 정보를 쓰게 한다. **비밀번호 평문 저장이 여기서 해결된다.**
+
+**12-1. 준비: role 컬럼과 비밀번호 암호화 (TODO 07)** 🔍
+- [ ] `member`에 `role` 컬럼 추가(`ALTER TABLE`, 기본값 `'USER'`) + `schema.sql`·`Member` DTO에 반영. 관리자 1명은 SQL로 `ADMIN`
+- [ ] `MemberDao`에 전체 조회·비밀번호 수정 메서드 + `member.xml` SQL
+- [ ] `PasswordEncodingTest`로 기존 회원 비밀번호를 한 번에 암호화 (⚠️ 실제 DB 변경 → **한 번만**, `@Transactional` 붙이지 않는 이유 생각해 보기)
+- [ ] 회원가입(`MemberService`)에서 `pe.encode(...)` 후 저장
+
+**12-2. `CustomUserDetails` + `CustomUserDetailsService` (TODO 07)** 🔍
+- [ ] `security/dto/CustomUserDetails`: `Member`를 감싸서 username = 이메일, password, authorities = `"ROLE_" + role`
+- [ ] `security/service/CustomUserDetailsService`: `selectByEmail` → 없으면 `UsernameNotFoundException` → `CustomUserDetails` 반환
+- [ ] M11의 `InMemoryUserDetailsManager` 빈 **삭제** (`UserDetailsService` 빈이 2개면 안 된다)
+- [ ] `MemberService.login`은 deprecate (비밀번호 비교는 Security가 한다) → `MemberServiceTest`의 login 테스트 정리
+
+**12-3. 로그인·로그아웃을 Security로 (TODO 08·09)** 🔍
+- [ ] `csrf` 비활성화 (교안대로, 👀 CSRF 개념·토큰은 설명만)
+- [ ] `logout`: `logoutUrl("/member/logout")`, `invalidateHttpSession(true)`, `logoutSuccessUrl("/")` → `MemberController`의 로그아웃 메서드 제거
+- [ ] `formLogin`: `loginPage("/member/login")`, `loginProcessingUrl("/member/login")`, `usernameParameter("email")`, `failureUrl("/member/login?error")`, `defaultSuccessUrl("/")`, `permitAll()` → `MemberController`의 `@PostMapping` 로그인 제거, GET은 `error` 파라미터로 알림 문구
+- [ ] 👀 기존 `login.jsp`의 `name="email"`/`"password"`가 그대로 쓰이는 이유
+
+**12-4. 로그인 정보 활용 (TODO 10·11)** 🔍
+- [ ] Controller: `HttpSession` + `loginUser` → **`@AuthenticationPrincipal CustomUserDetails`**에서 mno 꺼내기 (`ReviewController`·`ReviewRestController`·`MemberController` 탈퇴)
+- [ ] JSP: `<sec:authorize access="isAuthenticated()">`, `<sec:authentication property="principal.member.name">` (`index.jsp`, `detail.jsp`의 삭제·수정 버튼)
+- [ ] 테스트: `sessionAttr("loginUser", ...)` → `SecurityMockMvcRequestPostProcessors.user(new CustomUserDetails(...))`로 바꾸기
+- [ ] 👀 "화면에서 버튼을 숨기는 것은 보안이 아니다" → 서버 쪽(URL 규칙 + Service 작성자 검사)이 진짜 방어
+
+**12-5. Remember-Me (TODO 12)** 🔍 짧게
+- [ ] `login.jsp`에 `name="remember-me"` 체크박스 + `rememberMe(...)`로 60초 → 브라우저 껐다 켜서 유지·만료 확인, 개발자 도구에서 쿠키 2개 확인
+
+**12-6. 메서드 보안 (TODO 13)** 👀 + 선택 🔍
+- [ ] 👀 `@EnableMethodSecurity`, `@Secured`(`ROLE_` 전체 이름) vs `@PreAuthorize`(실행 전, `#인수`) vs `@PostAuthorize`(실행 후, `returnObject`)
+- [ ] (선택) 관리자만 들어가는 주소 하나에 `@Secured("ROLE_ADMIN")` + 403 테스트
+
+**셀프 체크**: 교안 pt.2 핵심 정리 (특히 "비밀번호 비교는 누가 하나?", "`loginProcessingUrl`을 정하면 왜 `@PostMapping` 로그인이 필요 없나?", "세션에 이제 무엇이 저장되나? (`SPRING_SECURITY_CONTEXT`)")
+
+**✅ 완료 기준**: DB 회원(암호화된 비밀번호)으로 로그인·로그아웃이 되고, 리뷰 작성·수정·삭제·탈퇴가 `@AuthenticationPrincipal`로 동작한다. 세션 `loginUser`를 쓰는 코드가 남아 있지 않다. Remember-Me 동작 확인. 브라우저 확인 + 전체 테스트 통과.
+
+---
+
+### M13. JWT로 REST API 인증 🔍 · 약 4~5시간
+교안: **JWT** (Notion) · 샘플: **FW_13** (`JWTUtil`, `JWTVerificationFilter`, `JWTAuthenticationFilter`, `SecurityExceptionHandlingFilter`, `APISecurityConfig`, TODO 01~07)
+
+M10의 `/api/v1/reviews`를 **세션 대신 토큰**으로 인증한다. 화면(JSP)은 M12의 세션 로그인을 그대로 쓰고, **`/api/**`만 따로 JWT 체인**을 둔다.
+
+**13-1. 개념 (교안 1장)** 👀
+- [ ] Session(번호표, Stateful) vs JWT(신분증, Stateless), scale-out·MSA에서 세션의 한계, "JWT는 보안이 아니라 편의성·확장성"
+- [ ] 토큰 구성 `Header.Payload.Signature`, Base64URL은 **암호화가 아니다** → Payload에 비밀번호 금지. jwt.io로 직접 디코딩
+
+**13-2. `JWTUtil` (TODO 01~03)** 🔍
+- [ ] JJWT 의존성 3개(`jjwt-api`, `jjwt-impl`·`jjwt-jackson`은 runtime) + properties: access 1분·refresh 2분(실습용), secret (⚠️ 커밋해도 되는 값인지 생각)
+- [ ] `JWTUtil`: `@Value`로 설정 받기 → `Keys.hmacShaKeyFor`로 `SecretKey` → `createAccessToken`(email·name·role claim) / `createRefreshToken`(email만) / `getClaims`(`parseSignedClaims`)
+- [ ] `JWTUtilTest`: 만든 토큰을 다시 읽기, 위조(서명 다름) → `SignatureException`, 만료 → `ExpiredJwtException`
+
+**13-3. 필터 3개 (TODO 04·05)** 🔍
+- [ ] `JWTVerificationFilter`(`OncePerRequestFilter`): `Authorization: Bearer ` 잘라내기 → 검증 → `SecurityContextHolder`에 저장, 토큰 없으면 그냥 통과
+- [ ] `JWTAuthenticationFilter`(`UsernamePasswordAuthenticationFilter` 확장): `/api/v1/auth/login`, 성공 시 `{ "accessToken": ... }` JSON 응답, 실패 시 예외를 바깥으로
+- [ ] `SecurityExceptionHandlingFilter`: `JwtException`·`BadCredentialsException` → 401, 그 외 500 JSON (👀 왜 `@RestControllerAdvice`(M7 `RestExceptionHandler`)로는 못 잡을까?)
+- [ ] 👀 세 필터에 `@Component`를 붙이지 않는 이유 (이중 등록)
+
+**13-4. `APISecurityConfig` (TODO 06)** 🔍
+- [ ] `@Order(1)` + `securityMatcher("/api/**")`, `csrf` 끄기, `SessionCreationPolicy.STATELESS`
+- [ ] 규칙: `/api/v1/auth/**`·`/api/v1/etc/**` → `permitAll`, 리뷰 목록·상세(GET) → `permitAll`, 작성·수정·삭제 → `authenticated`
+- [ ] `addFilterAt`/`addFilterBefore`로 **예외 → 검증 → 로그인** 순서 등록
+- [ ] M12의 웹 체인은 `@Order(2)`로 → 👀 "요청 하나는 체인 하나만 탄다"
+- [ ] CORS를 M10 `addCorsMappings`에서 **`CorsConfigurationSource` 빈**으로 옮기기 + `.cors(withDefaults())` (교안: Security가 Filter 단계라 MVC CORS보다 먼저 막을 수 있다)
+- [ ] 👀 `ReviewRestController`는 **한 줄도 안 바뀐다** (`@AuthenticationPrincipal`은 인증 방식과 무관) → 바뀌면 설계를 다시 보기
+
+**13-5. 확인 (TODO 07)** 🔍
+- [ ] `ReviewRestControllerTest`(또는 `JwtApiTest`): 로그인 → 토큰 받기 → `header("Authorization", "Bearer " + token)`로 작성 201 / 토큰 없이 401 / 위조 토큰 401
+- [ ] 👀 + 선택 🔍 교안처럼 `static/api-test.html`에서 `fetch` + `Authorization` 헤더로 직접 호출 (만료 1분 후 `TOKEN_ERROR` 확인)
+
+**셀프 체크**: 교안 JWT 핵심 정리 (특히 "로그인 요청은 DispatcherServlet을 탈까?", "토큰이 틀린 요청과 토큰이 없는 요청은 각각 어디서 막히나?", "JWT 로그아웃은 왜 어려운가?")
+
+**✅ 완료 기준**: `POST /api/v1/auth/login`으로 access token을 받고, 그 토큰으로 리뷰 작성·수정·삭제 API가 동작한다. 토큰 없음·위조·만료는 401 JSON. 화면(JSP) 로그인은 M12 그대로 동작. 전체 테스트 통과.
+
+---
+
+### ⏸️ 보류: Spring AI · JWT 심화 (교안 대기)
+- **Spring AI** (샘플 **FW_14**): Notion에 교안이 아직 없다 (2026-11-24 확인). 교안이 올라오면 M14~으로 만든다. 연결점: 리뷰 요약·추천 (SSAFY GMS 키 필요)
+- **JWT 심화** (샘플 FW_13 TODO 08~17): refresh token DB 저장·`/api/v1/auth/refresh` 재발급·로그아웃, Swagger에 JWT 붙이기, GitHub OAuth2 소셜 로그인 → JWT 교안은 TODO 07까지라 다루지 않는다. 교안이 추가되면 M13 뒤에 붙인다
+
+---
+
 ## 범위 밖 (큰 그림만)
 
-Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configuration 직접 만들기, Filter 구현, REQUIRED 외의 전파 속성·isolation, `@Async`·`@Cacheable`, Resilience(`@ConcurrencyLimit`, `@Retryable`), Base64·Ajax 업로드, 페이징, Swagger·CORS·RestClient 직접 구성(M7에서 👀), Spring Security
+Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configuration 직접 만들기, Filter 구현, REQUIRED 외의 전파 속성·isolation, `@Async`·`@Cacheable`, Resilience(`@ConcurrencyLimit`, `@Retryable`), Base64·Ajax 업로드, 페이징, Filter 직접 구현(FW_09 `filter/`), Ajax 화면(교안 TODO 03, 👀), Security의 JDBC 방식(`JdbcUserDetailsManager`)·CSRF 켜고 토큰 처리·Security 필터 상세(Part B 2장), Spring AI·JWT 심화(refresh 재발급·OAuth2, 교안 대기 → 위 ⏸️)
 
 ## 의도적으로 단순화한 것
 
-- **비밀번호 평문 저장**: Spring Security를 배우기 전이라 평문으로 둔다. 실무에서는 절대 금지(BCrypt 등으로 해싱).
+- **비밀번호 평문 저장**: Spring Security를 배우기 전이라 평문으로 둔다. 실무에서는 절대 금지(BCrypt 등으로 해싱). → **M12에서 `PasswordEncoder`로 해결 예정**
 - **입력 검증**: Bean Validation은 교안 밖이므로 Service의 if 문과 DB 제약으로만 처리한다.
 - **파일 저장**: 로컬 디스크에 저장한다. 실무에서는 S3 같은 스토리지를 쓰는 경우가 많다.
 
@@ -229,3 +413,6 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-22 | **M7 완료 — 맛집 노트 실습 종료** (M6 보류) | `restcontroller/ReviewRestController`(`/api/review` 상세 GET 200·작성 POST 201, 세션 mno), `config/RestExceptionHandler`(`basePackageClasses` + `@Order`, 404·500 `ProblemDetail`), `ReviewRestControllerTest` 4개. 테스트가 Jackson 3 역직렬화 버그(`Cannot map null into type int`, POST 항상 500) 발견 → `spring.jackson.deserialization.fail-on-null-for-primitives=false`. 전체 테스트 28개(1 Skipped). Notion 업로드. 셀프 체크는 튜터 설명 |
 | 2026-11-23 | M6 재개 | 교육생 요청으로 Interceptor 다시 시작. 로컬이 원격보다 11커밋 뒤처짐 → M3 초안 stash 후 pull. 개념 설명 다시(흐름 속 위치, 메서드 3개, preHandle false + 직접 응답, 등록·ANT 패턴, Filter·AOP·Service 검사 구분) + 6-1~6-3 명세 제시. `LoginCheckInterceptor` 작성 막 시작(미완성, 컴파일 에러 상태). **다음: 6-1 작성·리뷰** (`STUDY_LOG.md` 📌 참고) |
 | 2026-11-24 | **M6 완료 — 맛집 노트 M1~M7 전체 완료** | 6-1 `LoginCheckInterceptor`(`getSession(false)` + `loginUser` 검사, redirect + false), 6-2 `WebConfig` 생성자 주입 + `addPathPatterns` 세 경로, 6-3 Controller 5곳 검사 제거. `MemberDaoTest.selectByEmailTest` DB 의존 → 직접 insert 후 조회로 수정(튜터 작성, 교육생 요청). 전체 테스트 28개(1 Skipped), 브라우저 5가지 통과. 질문: 세션 범위, `WebMvcConfigurer` 등록·여러 개, Interceptor 위치. Notion 업로드 |
+| 2026-11-24 | 계획 추가 | 새 샘플 zip 5개 확인(FW_09 = Interceptor, FW_10 = REST, FW_11·13·14 = Security·JWT·AI). Notion 교안 Interceptor·REST API 재확인 → 교안에서 남은 부분으로 **M8 Interceptor 심화**(LoggingInterceptor·순서·ViewController), **M9 REST API 심화**(CRUD·403·`/api/v1/reviews`·Swagger·CORS·RestClient) 추가. Security·JWT·AI는 교안이 없어 ⏸️ 보류 |
+| 2026-11-24 | 계획 추가 (2차) | Notion에 **Spring Security pt.1·pt.2, JWT** 교안 추가됨 → 교안·FW_11/FW_13 TODO 번호에 맞춰 **M10 Security 기초**(메모리 사용자·`SecurityFilterChain`·`LoginCheckInterceptor` 해제, TODO 02~06), **M11 DB 회원 Security 로그인**(role 컬럼·비밀번호 암호화·formLogin/logout·`@AuthenticationPrincipal`·sec 태그·Remember-Me, TODO 07~13), **M12 JWT**(`JWTUtil`·필터 3개·`/api/**` 전용 체인·CORS 이동, TODO 01~07) 추가. 보류는 Spring AI와 JWT 심화(TODO 08~17: refresh·OAuth2)만 |
+| 2026-11-24 | M8 시작 (예외 처리 다시) | 교육생 요청으로 **M8 예외 처리 다시 보기** 추가, 아직 시작 안 한 마일스톤 번호를 하나씩 밈(Interceptor 심화 M9, REST 심화 M10, Security M11·M12, JWT M13, AI는 M14~). 튜터 세팅: Advice 2개를 TODO 뼈대로 비움, Service·Controller TODO 주석, 목표 테스트 4개 추가(🔴 6 / 🟢 4 확인), 안내서 `guides/M8_예외처리.md`. **다음: 8-1 관찰** |

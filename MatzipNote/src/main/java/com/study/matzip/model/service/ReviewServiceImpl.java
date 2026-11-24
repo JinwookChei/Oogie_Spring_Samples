@@ -32,6 +32,7 @@ public class ReviewServiceImpl implements ReviewService {
 	public Review selectDetail(int rno) {
 		Review review = reviewDao.selectDetail(rno);
 		if (review == null) {
+			// TODO: 8-4-2. "없음"을 뜻하는 커스텀 예외(RecordNotFoundException)로 바꾸기 (아래 checkReviewMno도)
 			throw new IllegalArgumentException("찾을 수 없는 리뷰 입니다.");
 		}
 		return review;
@@ -72,6 +73,7 @@ public class ReviewServiceImpl implements ReviewService {
 	private Review checkReviewMno(int rno, int mno) {
 		Review selectedReview = reviewDao.selectByRno(rno);
 		if(selectedReview == null) {
+			// TODO: 8-4-2. 여기도 RecordNotFoundException으로
 			throw new IllegalArgumentException("찾을 수 없는 리뷰 입니다.");
 		}		
 		if(mno != selectedReview.getMno()) {

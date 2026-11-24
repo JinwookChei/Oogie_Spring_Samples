@@ -924,7 +924,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### 📌 다음 세션 시작점
 
-**M6 완료 ✅ (2026-11-24) → 맛집 노트 M1~M7 전체 완료.** 다음은 선택 과제(M7 📌의 목록 + 위 ⏭️ 선택) 또는 새 샘플 zip(`FW_09`·`FW_10`·`FW_11`·`FW_13`·`FW_14`) 확인 후 다음 계획 정하기
+**M6 완료 ✅ (2026-11-24) → 맛집 노트 M1~M7 전체 완료.** (2026-11-24) 새 샘플 + Notion 교안(Interceptor·REST API) 기반으로 **M8 Interceptor 심화 → M9 REST API 심화** 계획 추가(`PLAN.md`). Security·JWT·AI는 교안 대기 ⏸️. ~~다음: M8 8-1 `LoggingInterceptor`부터~~ → (2026-11-24 갱신) Security·JWT 교안 추가로 M11~M13 계획, 교육생 요청으로 **M8 예외 처리 다시 보기**를 끼워 넣고 이후 번호를 하나씩 밀었다(Interceptor 심화 = M9). **다음: 맨 아래 M8 챕터 📌**
 - 현재 코드 상태: 로그인 검사는 Interceptor 한 곳에만. Controller 검사 코드 없음. 전체 테스트 28개(1 Skipped) 🟢
 - 커밋 여부는 교육생에게 확인 중
 - `MemberDaoTest.selectByEmailTest` 해결(직접 insert 후 조회) → 전체 테스트 28개(1 Skipped) 통과
@@ -991,3 +991,40 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 **M7 완료 ✅ (2026-11-22) → 맛집 노트 실습 종료** (M1~M5, M7 완료 / M6 Interceptor 보류). 전체 테스트 28개(27 통과, 1 Skipped = M4 롤백 실험용 `@Disabled`).
 - 선택 과제: ① M6 Interceptor 다시(📌 M6 챕터의 고칠 4가지) ② API 목록·수정·삭제(`GET /api/review`, `PUT`, `DELETE` 204) ③ JSON 형식 오류 → 400 핸들러(`HttpMessageNotReadableException`) ④ URL 복수형 `/api/reviews` ⑤ 👀 Swagger(springdoc)·CORS·RestClient 교안 읽기 ⑥ `@MybatisTest`/`@Mapper` 실험
+
+---
+
+## M8. 예외 처리 다시 보기 — 🔄 진행 중 (2026-11-24 시작)
+
+> 실습 안내서: [`guides/M8_예외처리.md`](guides/M8_예외처리.md) · 교안: Notion [Spring MVC pt.2] Part 3, [REST API] 12~14장
+
+### ✅ 한 일
+- (2026-11-24) 교육생 요청: "exceptionHandler를 다시 배우고 싶다, 기존 코드를 수정해서 다시 배울 수 있게 세팅해 달라"
+- 튜터 세팅 (교육생 요청으로 `MatzipNote/` 수정):
+  - `MvcExceptionHandler`·`RestExceptionHandler` → 애너테이션까지 비운 TODO 뼈대 (예전 코드는 커밋 `bc16023`에 있음, 다 쓴 뒤에만 비교)
+  - `ReviewServiceImpl` "찾을 수 없는 리뷰" 2곳, `ReviewController` 맨 위에 `TODO` 주석 (로직은 그대로)
+  - 목표 테스트 추가: `ReviewControllerTest` ③ 500·내부 정보 숨김, ④ 남의 글 수정 폼 403 / `ReviewRestControllerTest` ⑤ 500·내부 정보 숨김, ⑥ form 형식 415. ⑤(MVC)·⑦(REST)은 교육생 작성 TODO
+  - 확인: 두 클래스 10개 중 🔴 6개(MVC ①③④, REST ②⑤⑥), 🟢 4개 — 설계대로
+- 실습 안내서 `guides/M8_예외처리.md` 작성 (교안 MVC pt.2 13~19장 + REST 12~14장을 맛집 노트 코드에 맞춤)
+
+### 📚 배운 개념
+
+### 🙋 내 답변과 피드백
+
+### 🛠️ 트러블슈팅
+
+### ❓ 내가 한 질문
+
+### ⏭️ 남은 일
+- [ ] 8-1 관찰 표 7줄 (예상 먼저 쓰기)
+- [ ] 8-2 `error/4xx.jsp`, `include-message` 실험 후 되돌리기
+- [ ] 8-3 `MvcExceptionHandler` → MVC ①③ 🟢
+- [ ] 8-4 `RecordNotFoundException` + 404 + 테스트 ⑤
+- [ ] 8-5 `ReviewController` catch 정리 판단 기록 → MVC ④ 🟢
+- [ ] 8-6 `RestExceptionHandler` → REST ②⑤⑥⑦ 🟢
+- [ ] 8-7 전/후 비교, 셀프 체크 14문제
+
+### 📌 다음 세션 시작점
+**다음: 8-1 관찰부터.** 안내서 1장(세팅·빨간 테스트 표) 읽기 → 2장 그림 → 8-1 표의 "예상" 칸 먼저 채우기 → 앱 실행해서 확인.
+- 지금 빨간 테스트 6개는 정상(의도된 출발점). 전체 테스트를 돌리면 이 6개가 실패로 나온다
+- 이 상태로는 커밋하지 않는 편이 좋다 (빨간 테스트가 원격에 올라감) → 커밋은 교육생에게 확인

@@ -19,7 +19,7 @@
 4. 교육생은 시간이 많지 않다. `PLAN.md`의 깊이 표시를 지킨다.
    - 🔍 **세세하게**: 교육생이 직접 작성, 한 줄씩 리뷰
    - 👀 **큰 그림**: 개념만 짚고 가이드를 짧게 준다. 이때도 작성은 교육생이 한다.
-5. 교안 범위를 벗어난 기술(JPA, Spring Security, Thymeleaf 등)을 끌어들이지 않는다. 필요하면 "이런 게 있다" 정도로만 언급한다.
+5. 교안 범위를 벗어난 기술(JPA, Thymeleaf 등)을 끌어들이지 않는다. 필요하면 "이런 게 있다" 정도로만 언급한다. Spring AI(FW_14)와 JWT 심화(FW_13 TODO 08~ refresh·OAuth2)는 샘플만 있고 교안이 없다 → 교안이 올라오기 전에는 가르치지 않는다(`PLAN.md` ⏸️)
 6. `MatzipNote/`의 파일은 교육생만 작성·수정한다. Claude는 읽고 확인(빌드·테스트 실행 포함)만 하고, 교육생이 명시적으로 요청한 경우에만 직접 수정한다.
 
 ## 세션 시작할 때
@@ -40,7 +40,8 @@
 
 강의 순서와 교안은 Notion `[ 공부 정리 ]` 페이지의 **[ 백엔드 ]**, **[ Spring Framework ]** 섹션에 있다. 설명은 이 교안의 용어·예제·흐름에 맞춘다. 주제를 가르치기 전에 해당 페이지를 다시 읽어 최신 내용을 확인한다.
 
-- [ Spring Framework ]: Framework → DI → Spring Bean 등록 방법 → SpringBoot → 스프링 AOP → Spring 시각화 → Spring MVC pt.1 → Spring MVC pt.2 → Spring & MyBatis → Spring Transaction → Interceptor → REST API
+- [ Spring Framework ]: Framework → DI → Spring Bean 등록 방법 → SpringBoot → 스프링 AOP → Spring 시각화 → Spring MVC pt.1 → Spring MVC pt.2 → Spring & MyBatis → Spring Transaction → Interceptor → REST API → Spring Security pt.1 → Spring Security pt.2 → JWT
+  - Spring Security pt.1은 페이지가 2개다: 요약 페이지(입문용)와 상세 페이지(Part A 요약 + Part B 슬라이드 전체). 요약 페이지 안에 상세 페이지 링크가 있다.
 
 ## 강의 샘플 코드 (`SampleDemo/`)
 
@@ -54,7 +55,11 @@
 | `FW_04_aop_sol` | AOP | `LoggingAspect`, `PointcutTestBean`, `@AuditLog`, Advice 5종, `@Async`/`@Cacheable`, 내부 호출 한계 |
 | `FW_05_mvc_basic_sol` | MVC pt.1, pt.2 | `SimpleController`, JSP 설정, `MvcExceptionHandler`, 업로드, `@WebMvcTest` 테스트 |
 | `FW_07_mybatis_sol` | MyBatis, Transaction | `member.xml`/`address.xml`, `@MapperScan`, 동적 SQL·페이징, `@Transactional` 전파 테스트, Resilience |
-| (없음) | Interceptor, REST API | 샘플 zip이 아직 없다(FW_06으로 추정). 교안 Notion 페이지의 예제·TODO 번호를 기준으로 가르친다 |
+| `FW_09_project_1_sol` | Interceptor (+ MVC 종합) | `LoggingInterceptor`/`SessionInterceptor`, `MvcConfigurer`(`excludePathPatterns`, `addViewControllers`), Filter 3종 |
+| `FW_10_rest_sol` | REST API | `MemberRestController` CRUD, `RestExceptionHandler`, API Versioning, `SwaggerConfig`(springdoc 3.x), CORS, `RestClient`·HTTP Interface(`BingClient`) |
+| `FW_11_sec_sol` | Spring Security pt.1 (TODO 02~06), pt.2 (TODO 07~13) | `CustomSecurityConfig`, `PasswordEncoder`, `RoleHierarchy`, `CustomUserDetails`/`CustomUserDetailsService`, formLogin·logout, `@AuthenticationPrincipal`, sec 태그, Remember-Me, 메서드 보안 |
+| `FW_13_JWT_sol` | JWT (TODO 01~07). TODO 08~17(refresh 재발급·Swagger JWT·GitHub OAuth2)은 교안 없음 | `JWTUtil`, `JWTVerificationFilter`·`JWTAuthenticationFilter`·`SecurityExceptionHandlingFilter`, `APISecurityConfig`(`@Order(1)` `/api/**`, STATELESS, `CorsConfigurationSource`) |
+| `FW_14_AI_sol` | (교안 없음) Spring AI | ChatClient, Advisor, ChatMemory, RAG(Redis VectorStore), Tool. SSAFY GMS 키 필요 |
 
 샘플 공통 환경: Boot **4.1.0**, Java 21, 패키지 `com.ssafy.live`, DB `ssafylive`(계정 ssafy/ssafy), 스키마 스크립트 `src/main/resources/scripts/ssafy_hrm.txt`.
 Boot 4 의존성 이름: `spring-boot-starter-webmvc-test`(@WebMvcTest), `spring-boot-starter-aspectj`, `mybatis-spring-boot-starter` 4.0.1, JSP는 `tomcat-embed-jasper` + JSTL(`jakarta.servlet.jsp.jstl-api`, `org.glassfish.web:jakarta.servlet.jsp.jstl`).
@@ -78,5 +83,6 @@ Boot 4 의존성 이름: `spring-boot-starter-webmvc-test`(@WebMvcTest), `spring
 - `SampleDemo/`: 강의 샘플 코드 zip (위 표 참고)
 - `CLAUDE.md`, `PLAN.md`: 수업 규칙과 실습 계획
 - `STUDY_LOG.md`: 챕터별 학습 기록 (챕터가 끝나면 Notion으로 옮김)
+- `guides/`: 마일스톤별 실습 안내서 (Notion 교안을 맛집 노트 코드에 맞춰 묶은 것, 완성 코드 없음). 예: `guides/M8_예외처리.md`
 - `.gitignore`: Eclipse 워크스페이스 메타데이터(`/.metadata/`)는 추적하지 않는다.
 - 실습 프로젝트 폴더 `MatzipNote/`는 M1에서 만든다 (`PLAN.md` 참고).

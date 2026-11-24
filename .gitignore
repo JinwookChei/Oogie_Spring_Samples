@@ -1,2 +1,5 @@
 /.metadata/
 MatzipNote/.metadata/
+
+# 실제 API 키(VWorld)가 들어 있어 공개 저장소에 올리지 않는다 (로컬 참고용)
+/SampleDemo/FW_11_sec_sol.zip

@@ -1,41 +1,26 @@
 package com.study.matzip.config;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ControllerAdvice;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.servlet.ModelAndView;
+// ============================================================================
+// M8 예외 처리 다시 보기 — 화면(JSP)용 예외 처리 담당
+// 학습 교안: guides/M8_예외처리.md · Notion [Spring MVC pt.2] Part 3 (13~19장)
+//
+// 지금은 일부러 비워 둔 상태다. (애너테이션도 없음 → 아직 Advice가 아니다)
+// 8-1에서 "Advice가 없으면 어떻게 되는지" 먼저 관찰한 뒤, 8-3에서 직접 채운다.
+// 예전(M5) 코드는 git에 남아 있다 → 다 작성한 뒤에만 비교해 보기 (교안 8-7)
+// ============================================================================
 
-import com.study.matzip.exception.ForbiddenException;
+// TODO: 8-3-1. 이 클래스를 "controller 패키지의 Controller만" 담당하는 화면용 Advice로 만든다.
+//              (범위를 안 정하면 어떤 일이 생기는지 교안 17장 ⚠️ 박스를 먼저 읽기)
 
-import lombok.extern.slf4j.Slf4j;
-
-// controller 패키지의 Controller가 "실행되다가" 던진 예외만 담당한다.
-// 404(없는 URL)·405는 Controller가 선택되기 전에 실패 → 여기 안 옴 → BasicErrorController → error/404.jsp
-@ControllerAdvice(basePackages = "com.study.matzip.controller")
-@Slf4j
 public class MvcExceptionHandler {
 
-	// ① 권한 없음 (남의 리뷰 수정·삭제): 더 구체적인 타입이라 아래 Exception 핸들러보다 우선 선택된다
-	@ExceptionHandler(ForbiddenException.class)
-	@ResponseStatus(HttpStatus.FORBIDDEN) // 없으면 에러 화면인데 200 OK로 나간다
-	public ModelAndView handleForbidden(ForbiddenException e) { // Spring이 던져진 예외 객체를 넣어 준다
-		log.warn("권한 없는 요청: {}", e.getMessage()); // 예상한 상황 → warn, 스택 트레이스는 생략
+	// TODO: 8-3-2. ForbiddenException → 상태 코드 403, View error/403, 사용자용 메시지(msg) 전달, warn 로그
 
-		ModelAndView mav = new ModelAndView("error/403"); // /WEB-INF/views/error/403.jsp
-		mav.addObject("msg", e.getMessage());              // ForbiddenException의 메시지는 사용자용 문구
-		return mav;
-	}
+	// TODO: 8-4-3. (커스텀 예외를 만든 뒤) RecordNotFoundException → 상태 코드 404, View error/404, msg 전달
 
-	// ② 그 밖의 모든 예외 (최후의 보루): 예상하지 못한 오류
-	@ExceptionHandler(Exception.class)
-	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-	public ModelAndView handleException(Exception e) {
-		log.error("[Controller에서 처리되지 않은 오류]", e); // 원인 추적용: 스택 트레이스까지 서버 로그에만
+	// TODO: 8-3-3. 그 밖의 모든 예외(최후의 보루) → 상태 코드 500, View error/500
+	//              - 화면의 msg는 고정 문구 (e.getMessage()를 화면에 넘기지 않는다 — 왜?)
+	//              - 원인 추적용 로그는 스택 트레이스까지
 
-		ModelAndView mav = new ModelAndView("error/500");
-		// e.getMessage()는 SQL·클래스명 같은 내부 정보일 수 있어 화면에 넘기지 않는다
-		mav.addObject("msg", "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
-		return mav;
-	}
+	// TODO: 8-3-4. 실험: 상태 코드 지정을 잠깐 빼고 테스트를 돌려 보기 → 몇 번이 나오나? (교안 Part 3 Q5)
 }

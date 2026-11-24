@@ -40,7 +40,9 @@ public class WebConfig implements WebMvcConfigurer {
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
 		registry.addInterceptor(loginChecker).addPathPatterns(
-				"/review/write", "/review/*/edit", "/review/*/delete"
+				"/review/write", 
+				"/review/*/edit", 
+				"/review/*/delete"
 				);
 	}
 }
