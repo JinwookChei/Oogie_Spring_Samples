@@ -1006,10 +1006,42 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - 목표 테스트 추가: `ReviewControllerTest` ③ 500·내부 정보 숨김, ④ 남의 글 수정 폼 403 / `ReviewRestControllerTest` ⑤ 500·내부 정보 숨김, ⑥ form 형식 415. ⑤(MVC)·⑦(REST)은 교육생 작성 TODO
   - 확인: 두 클래스 10개 중 🔴 6개(MVC ①③④, REST ②⑤⑥), 🟢 4개 — 설계대로
 - 실습 안내서 `guides/M8_예외처리.md` 작성 (교안 MVC pt.2 13~19장 + REST 12~14장을 맛집 노트 코드에 맞춤)
+- (2026-11-25) 8-1 관찰 표 예상(1~4번 교육생, 5~7번 튜터) + 피드백
+- (2026-11-25) 8-2 `views/error/4xx.jsp` 작성 (`${status}`·`${error}`·`<c:out value="${path}">`) → 400·405가 Whitelabel 대신 4xx.jsp, 404는 404.jsp 확인. 리뷰 2회
+- (2026-11-25) 8-2 실험용 `server.error.include-message=always`를 `application.properties`에 넣음 (curl 확인 전에 세션 종료)
 
 ### 📚 배운 개념
 
 ### 🙋 내 답변과 피드백
+- **(2026-11-25) 8-1 관찰 표 "예상"** (1~4번은 교육생, 5~7번은 교육생 요청으로 튜터가 작성)
+
+  | # | 요청 | 내 예상 | 튜터 피드백 (지금 = Advice 없음) | 실제 (앱 실행 후) | 누가 처리? |
+  |---|---|---|---|---|---|
+  | 1 | 남의 리뷰 삭제 | 403 | ❌ **500** `error/500.jsp`. 403은 **목표**다 (ForbiddenException을 잡는 곳이 없어 Tomcat까지 올라감) | | |
+  | 2 | `/review/9999` | 500 | ❌ **200**, 상세 화면에 에러 문구. `selectDetail`의 catch가 IAE를 잡는다. 목표는 404 | | |
+  | 3 | `/review/abc` | 400 | ⭕ 400. 화면은 400·4xx·error JSP가 없어 Whitelabel | | |
+  | 4 | `/nope` | 404 | ⭕ 404 `error/404.jsp` | | |
+  | 5 | GET `/review/1/delete` | (튜터) 405 Whitelabel | Controller 선택 전 실패 → 405.jsp·4xx.jsp가 없음 | | |
+  | 6 | 브라우저 `/api/review/9999` | (튜터) 500 `error/500.jsp` (HTML) | `Accept: text/html` → BasicErrorController `errorHtml` | | |
+  | 7 | curl `/api/review/9999` | (튜터) 500 기본 JSON `{timestamp,status,error,path}` | curl은 `Accept: */*` → `error()`가 JSON | | |
+
+  - 피드백: 1·2번은 "**원래 이래야 하는 값**"을 적었다. 그 감각이 맞고, 그게 M8의 목표다. 8-1은 "**지금** 이렇게 된다"를 보는 단계여서, 둘의 차이가 바로 고칠 거리다
+
+- **(2026-11-25) 8-2 `error/4xx.jsp` 1차 리뷰**
+  - 👍 위치·이름(`views/error/4xx.jsp`) 정확, `status`·`error`·`path` 세 이름 정확, `500.jsp` 복사로 charset·taglib·`root` 유지
+  - 🔧 9행 `<title>서버 오류` → 4xx는 **클라이언트** 오류 (복사 흔적)
+  - 🔧 13행 `${msg}` → 여기 오는 건 BasicErrorController라 `msg`가 없음 → 항상 빈칸. 삭제
+  - 🔧 16행 `${path}` → 사용자가 입력한 주소 = 외부 입력. EL `${}`는 HTML 이스케이프를 안 함 → `404.jsp`처럼 `<c:out>` (XSS 방지)
+  - 💡 12행 `4xx` 고정 → `${status}`로 바꾸면 400/405가 구분됨, 값만 나열된 `<p>` 3줄은 사용자용 문장으로, "누가 이 화면을 보여 주나" JSP 주석 추가
+
+- **(2026-11-25) 8-2 `4xx.jsp` 2차 리뷰** → ①②③④ 모두 반영 👍 (title, msg 삭제, `<c:out>`, h1에 `${status}`)
+  - 🔧 15행 문구를 `404.jsp`에서 그대로 가져와 "페이지가 **없습니다**" → 4xx.jsp에 오는 건 400·405처럼 **주소는 있는데 요청 방식·값이 틀린** 경우 (404는 404.jsp가 먼저 잡음) → 4xx 전체에 맞는 문구로
+  - 💡 "누가 이 화면을 보여 주나" JSP 주석은 아직 없음 (선택)
+
+- **(2026-11-25) 8-2 `4xx.jsp` 적용 후 실행 확인** (8-1 "실제" 칸 일부 확인)
+  - `/review/abc` → **400**, GET `/review/1/delete` → **405** → 둘 다 Whitelabel 대신 `4xx.jsp` ✅ (8-1 3·5번 예상 적중)
+  - `/nope` → **404** → `404.jsp`가 `4xx.jsp`보다 먼저 선택됨 ✅ (정확한 코드 → 4xx 순서 확인)
+  - 15행 문구("페이지가 없습니다")는 디스크상 아직 그대로 → 수정 남음
 
 ### 🛠️ 트러블슈팅
 - **(2026-11-24) 튜터가 비워 둔 `MvcExceptionHandler.java`가 예전(M5) 완성 코드로 되돌아가 있었다 + 33행 `Excep//tion` 컴파일 에러**
@@ -1018,11 +1050,16 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - 예방: Claude가 파일을 바꾼 뒤에는 STS에서 그 탭을 **저장하지 말고 닫고**, 프로젝트 `F5`(Refresh) 후 다시 연다
 
 ### ❓ 내가 한 질문
+- **(2026-11-25) 처음엔 내 Controller가 불리고, 예외를 던지면 ErrorController가 잡아서 에러 페이지로 가나?** → 반은 맞음. ① ErrorController는 예외를 '잡는' 게 아니다: 아무도 안 잡은 예외가 Tomcat까지 올라가면 Tomcat이 `/error`로 **두 번째 요청(내부 forward)**을 보낸다 → 그 요청을 받는 평범한 Controller가 BasicErrorController. 예외 정보는 request 속성으로 전달. ② 내 Controller가 **아예 안 불리는** 경우도 있다: `/nope`(404)·405는 Controller 선택 전 실패, `/review/abc`(400)는 선택은 됐지만 파라미터 변환에서 실패해 메서드 본문이 실행 안 됨 → 이 경우는 예외가 아니라 Spring이 `sendError(상태 코드)`
+- **(2026-11-25) EL은 어떻게 쓰나?** → `${이름}`. 4개 scope(page→request→session→application)를 차례로 찾아 처음 나온 값을 출력, 없으면 빈 문자열(에러 X). Controller의 `Model`·BasicErrorController의 `ModelAndView` 값은 결국 **request 속성**이 된다 → 같은 `${이름}`으로 꺼냄. 이미 `500.jsp`의 `${msg}`, `${root}`가 EL
+- **(2026-11-25) `BasicErrorController`는 어디 있나?** → 우리 코드가 아니라 라이브러리 jar 안. Boot 4.1.2 기준 `spring-boot-webmvc-4.1.2.jar`의 `org.springframework.boot.webmvc.autoconfigure.error` 패키지 (Boot 3까지는 `spring-boot-autoconfigure`의 `...autoconfigure.web.servlet.error`). `ErrorMvcAutoConfiguration`이 자동으로 빈 등록. STS `Ctrl+Shift+T`(Open Type)로 소스 열기. 핵심: `@RequestMapping("/error")` + `errorHtml()`(`produces=text/html`, ModelAndView) / `error()`(그 외, JSON) → 8-1 6·7번 차이의 정체
+- **(2026-11-25) `error/` 폴더에 JSP만 만들면 자동으로 매핑되나?** → ⭕ 단, **BasicErrorController(`/error`)까지 온 에러만.** Boot의 `DefaultErrorViewResolver`가 `error/{코드}` → `error/{4xx|5xx}` 순서로 View 이름을 만들어 찾는다(이름 규칙 = 약속, Controller 코드 불필요). ❌ 안 되는 경우: Advice·Controller가 이미 처리한 예외(그땐 반환한 View 이름이 쓰인다), MockMvc 테스트(Tomcat이 없어 `/error`로 안 감). 폴더 위치는 ViewResolver prefix 기준 `WEB-INF/views/error/`
+- **(2026-11-25) 자주 쓰이는 HTTP 상태 코드는?** → 2xx 성공(200·201·204), 3xx 이동(302 = PRG·로그인 리다이렉트, 304), 4xx 클라이언트 잘못(400·401·403·404·405·409·415), 5xx 서버 잘못(500·503). 헷갈리는 쌍: 401(누군지 모름) vs 403(누군지 알지만 권한 없음), 400(값이 틀림) vs 415(형식이 틀림), 404(대상 없음) vs 405(대상은 있는데 메서드가 틀림). 8-1 예상 칸 채울 때 참고
 - **(2026-11-24) 각 챕터별 소요 시간은?** → `PLAN.md` 예상 기준: 남은 M8~M13 약 15~20시간. M8은 단계 합계 약 3시간(8-2·8-7을 👀로 줄이면 2시간 안쪽). M11·M12는 중간에 끊기면 앱이 반쯤 바뀐 상태라 하루에 이어서(합계 5~7시간)
 
 ### ⏭️ 남은 일
-- [ ] 8-1 관찰 표 7줄 (예상 먼저 쓰기)
-- [ ] 8-2 `error/4xx.jsp`, `include-message` 실험 후 되돌리기
+- [x] 8-1 관찰 표 7줄 (예상 먼저 쓰기) — 예상·피드백까지 함. **실제 실행 확인은 건너뜀** → 8-2에서 3·5·7번을 실행할 때 같이 확인
+- [ ] 8-2 `error/4xx.jsp` ✅ 작성·확인 / 남은 것: 15행 문구 수정, `include-message` 실험(curl) 후 **줄 지우기**, (선택) DefaultErrorAttributes
 - [ ] 8-3 `MvcExceptionHandler` → MVC ①③ 🟢
 - [ ] 8-4 `RecordNotFoundException` + 404 + 테스트 ⑤
 - [ ] 8-5 `ReviewController` catch 정리 판단 기록 → MVC ④ 🟢
@@ -1030,14 +1067,14 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - [ ] 8-7 전/후 비교, 셀프 체크 14문제
 
 ### 📌 다음 세션 시작점
-**(2026-11-24 세션 종료) 다음: 8-1 관찰부터.** M8 세팅만 끝났고 교육생 실습은 아직 시작 전.
-1. 시작 전에: `git pull` (다른 PC면 필수) → STS에서 `MatzipNote` 프로젝트 `F5`(Refresh) → `MvcExceptionHandler.java`·`RestExceptionHandler.java`가 **TODO 뼈대**인지 확인 (예전 완성 코드가 보이면 열린 탭이 덮어쓴 것 → 튜터에게 알리기)
-2. `guides/M8_예외처리.md` 0~3장 읽기 (세팅·빨간 테스트 표 → 2장 그림 → 3장 예외 지도)
-3. 8-1 표의 **"예상" 칸 먼저** 채우기 → 앱 실행(`Run As > Spring Boot App`)해서 "실제" 확인 → 결과를 이 챕터 🙋에 옮기기
+**(2026-11-25 세션 종료) 다음: 8-2 마무리 → 8-3.** 8-1 끝, 8-2는 `4xx.jsp` 작성·실행 확인까지.
+1. 시작 전에: `git pull` → STS `MatzipNote` `F5` → `MvcExceptionHandler`·`RestExceptionHandler`가 아직 **TODO 뼈대**인지 확인
+2. `4xx.jsp` **15행 문구 고치기**: "페이지가 없습니다"는 404의 뜻 → 이 화면엔 400·405가 온다 → "요청을 처리할 수 없다" 방향으로. (선택) "BasicErrorController가 고르는 화면" 주석
+3. ⚠️ **`application.properties` 맨 아래 `server.error.include-message=always`가 실험용으로 커밋돼 있다** → 앱 재시작 → `curl -i http://localhost:8080/api/review/9999` → 새로 생긴 필드·문장 확인 → **그 줄 지우기**. 질문: 그 문장은 어디서 왔나? DB 오류였다면? 왜 기본값이 `never`?
+4. 열린 퀴즈 3개: ① `views/errors/404.jsp`(s 붙임)면? ② 8-3 이후 남의 글 삭제의 403.jsp는 자동 매핑 vs 직접 지정? ③ `/review/abc`(400)는 ReviewController 담당 Advice가 잡나, BasicErrorController로 가나?
+5. 그다음 8-3 `MvcExceptionHandler` (안내서 4장 8-3)
 
 현재 상태 메모
-- 커밋 `7f3ab76`(푸시 완료): M8 세팅 + M8~M13 계획 + 안내서. 원격에도 목표 테스트 🔴 6개가 그대로 있다 (의도된 출발점, 전체 32개 = 🟢 25 / 🔴 6 / Skipped 1)
-- 🔴 6개: `ReviewControllerTest` ①③④, `ReviewRestControllerTest` ②⑤⑥ → 8-3·8-4·8-5·8-6에서 초록으로. ⑤(MVC)·⑦(REST)은 교육생이 새로 작성
-- `SampleDemo/FW_11_sec_sol.zip`은 실제 VWorld API 키가 있어 `.gitignore` 처리 → **로컬에만 있다.** 다른 PC에서 M11·M12(Security)를 하려면 그 PC로 zip을 직접 옮겨야 한다
-- git stash에 예전 "M3 edit draft (superseded by origin)"가 남아 있음 (필요 없으면 `git stash drop`)
-- 그다음 순서: M8 → M9 Interceptor 심화 → M10 REST 심화 → M11·M12 Security(하루에 이어서) → M13 JWT
+- 커밋 시점 `test-compile` 통과. 테스트는 여전히 🔴 6개(의도된 출발점, 8-3부터 초록으로)
+- `SampleDemo/FW_11_sec_sol.zip`은 `.gitignore` → 로컬에만 있음 (M11·M12 때 다른 PC면 직접 옮기기)
+- git stash의 예전 "M3 edit draft"는 아직 남아 있음
