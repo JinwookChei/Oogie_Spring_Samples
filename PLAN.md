@@ -193,7 +193,7 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 
 ---
 
-### M8. 예외 처리 다시 보기 🔍 · 약 2~3시간
+### M8. 예외 처리 다시 보기 🔍 · 약 2~3시간 — ✅ 완료 (2026-11-27)
 교안: **Spring MVC pt.2 Part 3** (Notion 13~19장), **REST API** 12~14장 → 맛집 노트용 실습 안내서 **`guides/M8_예외처리.md`** · 샘플: FW_05·FW_10 `MvcExceptionHandler`·`RestExceptionHandler`·`RecordNotFoundException`
 
 M5·M7에서 튜터가 대부분 써 준 예외 처리를 **비워 놓고 다시 직접** 쓴다. (교육생 요청, 2026-11-24)
@@ -419,3 +419,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-24 | 세션 종료 (M8 세팅만) | 커밋 `7f3ab76` 푸시(🔴 6개 포함, 의도됨). 커밋 직전 STS 열린 탭이 `MvcExceptionHandler`를 예전 코드 + `Excep//tion` 오타로 덮어씀 → 뼈대로 복구. `FW_11_sec_sol.zip`은 실제 API 키 때문에 gitignore(로컬만). **다음: 8-1 관찰부터** (`STUDY_LOG.md` M8 📌) |
 | 2026-11-25 | M8 8-1 끝, 8-2 진행 중 | 8-1 예상 표 + 피드백. 8-2 `error/4xx.jsp` 작성(400·405 → 4xx.jsp, 404 → 404.jsp 확인). 질문: 상태 코드, BasicErrorController 위치(Boot 4 `spring-boot-webmvc`), EL, `/error` 두 번째 요청. `include-message=always` 실험 줄이 커밋에 남아 있음 → **다음: 4xx.jsp 15행 문구, curl 실험 후 줄 삭제 → 8-3** |
 | 2026-11-27 | M8 8-2~8-7 (셀프 체크 7/14) | 8-2 curl 실험(devtools가 message·trace 노출) 후 줄 삭제. 8-3 MVC Advice 403·500, `@ResponseStatus` 빼기 → 200 확인. 8-4 `RecordNotFoundException` + 404. 8-5 catch 정리(InvalidImage만 남김). 8-6 REST Advice 404·403·415·500 (Exception 핸들러가 415를 500으로 삼키는 것 재현 → `HttpMediaTypeNotSupportedException` 핸들러). 테스트 34개 통과. 흐름 시각화 `guides/M8_예외처리_흐름.html`. 일부 코드는 교육생 요청으로 튜터 작성. **다음: 셀프 체크 8~14 → M8 Notion 업로드 → M9** |
+| 2026-11-27 | **M8 완료** | 셀프 체크 8~14는 교육생 요청으로 튜터 정리(Accept 헤더, catch 삭제, 화면/API Advice 분리, `basePackageClasses` = 패키지 전체, RuntimeException 상속 이유, 고칠 수 있는 오류는 Controller catch, 415→500을 그림 ②로). 질문: BasicErrorController 자동 설정. Notion 업로드. ⏸️ `/review/abc` 400→500은 알려진 한계로 남김. **다음: M9 Interceptor 심화** |

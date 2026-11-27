@@ -994,7 +994,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ---
 
-## M8. 예외 처리 다시 보기 — 🔄 진행 중 (2026-11-24 시작)
+## M8. 예외 처리 다시 보기 — ✅ 완료 (2026-11-27 · 11-24 시작) · [Notion](https://app.notion.com/p/4256412b0acd81b08da9cca7ac8a149b)
 
 > 실습 안내서: [`guides/M8_예외처리.md`](guides/M8_예외처리.md) · 교안: Notion [Spring MVC pt.2] Part 3, [REST API] 12~14장
 
@@ -1135,6 +1135,15 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - 6 ⭕ 더 가까운 타입이 이긴다
   - 7 ⭕ → 보충: Controller가 선택되기 전 실패라 범위 검사에 쓸 Controller가 없음 → BasicErrorController가 404.jsp
 
+- **(2026-11-27) M8 셀프 체크 8~14번** — 교육생 "너가 정리해줘" → **튜터가 답 정리**
+  - 8 `Accept` 헤더. BasicErrorController의 `/error`에는 메서드가 2개: `errorHtml()`(`produces = text/html`, ModelAndView → JSP)와 `error()`(그 밖, `ResponseEntity<Map>` → JSON). 브라우저는 `Accept: text/html,...`, curl은 `Accept: */*` → 같은 주소라도 다른 메서드가 고름
+  - 9 **지운다.** Advice가 403 + `error/403`을 맡으니 Controller catch는 중복이고, 오히려 302 redirect로 바꿔 403을 숨긴다(8-5에서 catch 삭제 → 테스트 ④ 🟢)
+  - 10 **반환 방식이 다르기 때문.** 화면용은 `ModelAndView`(View 이름 → JSP), API용은 `@ResponseBody`가 붙어 `ProblemDetail` → JSON. 합치면 ① 같은 예외에 HTML/JSON 중 하나만 고를 수 있음(API 호출에 HTML이 가거나 브라우저에 JSON이 감) ② 반환 타입이 섞여 메서드마다 따로 신경 써야 함 → 범위(`basePackages`/`basePackageClasses`)로 나눠서 각자 자기 Controller만 맡게 한다
+  - 11 ❌ **그 클래스가 속한 패키지 전체**를 담당(하위 패키지 포함). 클래스는 "패키지를 가리키는 표지" 역할 — 문자열 대신 클래스를 써서 오타는 컴파일 에러로 잡히고 패키지 이름을 바꿔도 따라감. 그래서 API Controller는 화면 Controller와 **다른 패키지**에 있어야 의도대로 나뉜다. 딱 그 클래스만 지정하려면 `assignableTypes`
+  - 12 IAE의 자식으로 만들면 `ReviewController`의 `catch (IllegalArgumentException e)`가 새 예외까지 잡아 **Advice로 못 감** → 404 불가. `RuntimeException`을 바로 상속하면 IAE와 형제라 catch를 빠져나가 Advice의 `handleNotFound`로 간다. 뜻도 다름: IAE = "입력값이 틀림", RecordNotFound = "대상이 없음"
+  - 13 **사용자가 그 자리에서 고칠 수 있는 입력 오류**이기 때문(안내서 3장 표의 마지막 열). Controller에서 잡으면 가입 폼으로 돌아가 쓴 값 + "이미 가입된 이메일" 문구를 보여 주고 다른 이메일로 다시 시도하게 할 수 있음. Advice로 보내면 에러 페이지로 가서 입력한 내용을 잃는다 → 8-5의 `InvalidImageException` catch를 되살린 것과 같은 기준. 정리: **고칠 수 있으면 Controller catch, 고칠 수 없으면(없음·권한·서버 고장) Advice**
+  - 14 (안내서 2장 그림) 415의 원인 `HttpMediaTypeNotSupportedException`은 `@RequestBody`를 준비하다 났다 = `ReviewRestController`가 **선택된 뒤** → 범위 안. 그래서 ③(Spring 표준 예외 → `sendError(415)`)까지 가기 전에 **②에서 `RestExceptionHandler`가 먼저 가로챔** → 이 예외에 가장 가까운 핸들러가 `Exception`뿐 → 500. 고친 방법: 그 예외 전용 메서드(415)를 추가 → 상속 단계가 더 가까워 이김. `/review/abc` 400 → 500(⏸️)도 같은 원리
+
 ### 🛠️ 트러블슈팅
 - **(2026-11-27) properties의 `include-message`를 주석 처리했는데도 응답에 `message`와 `trace`(스택 트레이스 전체)가 나왔다**
   - 원인: `pom.xml`의 `spring-boot-devtools`가 실행 시 개발용 기본값으로 `server.error.include-message`·`include-stacktrace`를 `always`로 덮어씀. 운영(jar 실행)에서는 devtools가 꺼져 `never`로 돌아감
@@ -1145,6 +1154,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - 예방: Claude가 파일을 바꾼 뒤에는 STS에서 그 탭을 **저장하지 말고 닫고**, 프로젝트 `F5`(Refresh) 후 다시 연다
 
 ### ❓ 내가 한 질문
+- **(2026-11-27) BasicErrorController는 내가 안 만들어도 존재하나?** → ⭕ Boot **자동 설정**이 만든다. webmvc starter가 있으면 `ErrorMvcAutoConfiguration`이 BasicErrorController를 빈으로 등록 (DispatcherServlet·DataSource를 직접 안 만드는 것과 같은 원리). `@ConditionalOnMissingBean(ErrorController.class)` 조건이 있어 **내가 `ErrorController` 구현 빈을 만들면 Boot 것은 물러난다**. `server.error.whitelabel.enabled=false`는 Whitelabel 화면만 끄고 컨트롤러는 남는다
 - **(2026-11-27) RestExceptionHandler와 MvcExceptionHandler가 어떤 흐름으로 동작하는지 동적 시각화로 보여 줘** → 튜터가 `guides/M8_예외처리_흐름.html` 작성 (브라우저로 열기). 시나리오 8개(화면 403·404·500·Controller catch / API 404·403·500 / Advice 없음)를 단계별로 진행. 핵심 3가지: ① 어느 Advice? → Controller의 **패키지**(basePackages/basePackageClasses), 범위가 겹칠 때만 `@Order` ② 어느 메서드? → **상속 단계가 가장 가까운** 예외 타입 ③ Advice가 처리하면 "처리됨" → Tomcat `/error`까지 안 감. 화면용은 `ModelAndView` → ViewResolver → JSP, API용은 `ProblemDetail` → MessageConverter → JSON (상태가 ProblemDetail 안에 있어 `@ResponseStatus` 불필요)
 - **(2026-11-27) trace가 뭐야?** → 스택 트레이스. 예외가 터진 곳(맨 위 `at`)부터 그곳을 부른 메서드들(아래로 갈수록 바깥 호출)을 차례로 적은 호출 스택 기록. STS 콘솔의 빨간 `at ...` 줄들이 바로 이것. 개발자에겐 버그 위치를 알려 주는 지도(로그에 남김), 외부엔 서버 내부 설계도(응답에 노출 금지)
 - **(2026-11-25) 처음엔 내 Controller가 불리고, 예외를 던지면 ErrorController가 잡아서 에러 페이지로 가나?** → 반은 맞음. ① ErrorController는 예외를 '잡는' 게 아니다: 아무도 안 잡은 예외가 Tomcat까지 올라가면 Tomcat이 `/error`로 **두 번째 요청(내부 forward)**을 보낸다 → 그 요청을 받는 평범한 Controller가 BasicErrorController. 예외 정보는 request 속성으로 전달. ② 내 Controller가 **아예 안 불리는** 경우도 있다: `/nope`(404)·405는 Controller 선택 전 실패, `/review/abc`(400)는 선택은 됐지만 파라미터 변환에서 실패해 메서드 본문이 실행 안 됨 → 이 경우는 예외가 아니라 Spring이 `sendError(상태 코드)`
@@ -1161,11 +1171,11 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - [x] 8-4 `RecordNotFoundException` + 404 + 테스트 ⑤ — 8-4-1~8-4-4 ✅ (2026-11-27). 8-4-5·8-4-6 ✅ → **8-4 완료** (2026-11-27)
 - [x] 8-5 `ReviewController` catch 정리 판단 기록 → MVC ④ 🟢 (2026-11-27). 미룸: 브라우저로 남의 리뷰 수정 주소 → 403 확인
 - [x] 8-6 `RestExceptionHandler` → REST ②⑤⑥⑦ 🟢 (2026-11-27). 선택 과제(8-6-6 `code` 필드, 깨진 JSON → 400)는 건너뜀
-- [ ] 8-7 전/후 비교 ✅, 예전 코드 비교 ✅, 잡는/못 잡는 예외 표 ✅ (2026-11-27). 남은 것: 셀프 체크 14문제
+- [x] 8-7 전/후 비교 ✅, 예전 코드 비교 ✅, 잡는/못 잡는 예외 표 ✅ (2026-11-27). 셀프 체크 1~7 교육생 답 + 피드백, 8~14는 교육생 요청으로 튜터 정리 (2026-11-27)
 - ⏸️ **알려진 한계 (교육생 판단으로 넘어감, 2026-11-27)**: `/review/abc`가 400 → 500. 숫자 변환 실패(Spring 표준 예외)를 `MvcExceptionHandler.handleException`이 삼킴. 고치려면 8-6-4처럼 그 예외 전용 400 메서드 추가
 
 ### 📌 다음 세션 시작점
-**(2026-11-27) 다음: M8 셀프 체크 8~14번 → M8 완료 → Notion 업로드 → M9.** 8-1~8-7 작업은 끝, 전체 테스트 34개 통과(1개는 원래 `@Disabled`).
+~~(2026-11-27) 다음: M8 셀프 체크 8~14번 → M8 완료 → Notion 업로드 → M9.~~ → **(2026-11-27) M8 완료 ✅, Notion 업로드 → 맨 아래 M9 챕터로 이동.** 8-1~8-7 작업은 끝, 전체 테스트 34개 통과(1개는 원래 `@Disabled`).
 1. 시작 전에: `git pull` → STS `MatzipNote` `F5` (튜터가 바꾼 파일이 많다: `ReviewController`·`RestExceptionHandler`·두 테스트·`detail.jsp`)
 2. 셀프 체크 1~7번은 답·피드백 완료 (🙋 참고). **8~14번 답하기**: 8 BasicErrorController의 `errorHtml()`/`error()`, 9 → 8-5, 10 화면용/API용을 합치면?, 11 `basePackageClasses`는 클래스 하나만?, 12 → 8-4, 13 이메일 중복은 왜 Controller catch?, 14 → 8-6-4
 3. M8 완료 처리: `PLAN.md` M8 제목에 ✅, STUDY_LOG M8 제목에 ✅ + Notion `🍜 맛집 노트 실습 기록` 아래 `M8. 예외 처리 다시 보기` 페이지
@@ -1175,3 +1185,30 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - 흐름 시각화: `guides/M8_예외처리_흐름.html` (브라우저로 열기)
 - `SampleDemo/FW_11_sec_sol.zip`은 `.gitignore` → 로컬에만 있음
 - git stash의 예전 "M3 edit draft"는 아직 남아 있음
+
+---
+
+## M9. Interceptor 심화 — 🔄 진행 중 (2026-11-27 시작)
+
+> 교안: Notion [Interceptor] 2~4·6·7·9장 · 샘플: FW_09 (`LoggingInterceptor`, `MvcConfigurer`, TODO 06·08)
+
+### ✅ 한 일
+
+### 📚 배운 개념
+
+### 🙋 내 답변과 피드백
+
+### 🛠️ 트러블슈팅
+
+### ❓ 내가 한 질문
+
+### ⏭️ 남은 일
+- [ ] 9-1 `LoggingInterceptor` (시작 시간 → request 속성, `afterCompletion`에서 처리 시간 + `ex`)
+- [ ] 9-2 `handler`가 `HandlerMethod`일 때만 "Controller#메서드" 로그
+- [ ] 9-3 `WebConfig` 등록 (전체 + 정적 리소스 제외, `.order()`)
+- [ ] 9-4 순서 실험 (비로그인 `/review/write`)
+- [ ] 👀 9-5 `addViewControllers`로 `MainController` 대체 판단
+- [ ] 셀프 체크 (교안 9장 Q1~Q5)
+
+### 📌 다음 세션 시작점
+(2026-11-27) M9 시작: 개념 확인 → 9-1 명세 제시 단계
