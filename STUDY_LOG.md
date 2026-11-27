@@ -1193,17 +1193,38 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 > 교안: Notion [Interceptor] 2~4·6·7·9장 · 샘플: FW_09 (`LoggingInterceptor`, `MvcConfigurer`, TODO 06·08)
 
 ### ✅ 한 일
+- (2026-11-27) 개념 확인 1~4 (세 메서드 시점, 여러 개일 때 순서, 싱글톤 필드 위험, Advice 처리 시 `ex`)
+- (2026-11-27) 9-1 `config/LoggingInterceptor` 작성 (`@Component`, preHandle 시작 로그 + `startTime` request 속성, afterCompletion 처리 시간 debug + `ex` error). 1차 리뷰 후 🔧 3개는 교육생 요청으로 튜터 수정. 컴파일 OK, **아직 `WebConfig` 미등록 → 동작 안 함**
 
 ### 📚 배운 개념
+- **세 메서드의 시점**: `preHandle`(Controller 전, false면 중단) → Controller → `postHandle`(Controller가 **정상으로** 끝난 뒤, View 렌더링 전) → View 렌더링 → `afterCompletion`(모두 끝난 뒤, **예외가 나도** 호출, `ex`로 전달)
+- **여러 개일 때**: pre는 등록 순, post·after는 역순 (양파 껍질 / 스택 LIFO). DispatcherServlet이 목록을 들고 앞에서부터·뒤에서부터 부른다
+- **싱글톤 + 필드 = 위험**: Interceptor 빈은 객체 하나를 모든 요청(스레드)이 함께 씀 → 필드에 요청별 값을 두면 동시 요청이 덮어씀. 요청마다 새로 생기는 `request`에 `setAttribute`로 저장
 
 ### 🙋 내 답변과 피드백
+- **(2026-11-27) M9 개념 확인 1~4**
+  - 1 "postHandle은 서비스를 끝내고 컨트롤러로 진행할 때, 예외면 postHandle만 호출" ❌ → postHandle은 **Controller가 정상으로 끝난 뒤·View 전**. 예외가 나면 반대로 **postHandle은 건너뛰고 afterCompletion만** 호출 (교안 2장 표 "특이사항" 열)
+  - 2 "A.pre, B.pre, C.reHandle, C.post, B.post, C.post" △ → pre 순서 ⭕. 문제는 A·B 두 개뿐이고, afterCompletion이 빠짐. 정답: A.pre → B.pre → Controller → B.post → A.post → (View) → B.after → A.after
+  - 3 "모르겠어" → 튜터 설명 (📚 싱글톤 + 필드)
+  - 4 "들어오지 않는다" ⭕ → Advice가 처리하면 "정상 처리"로 봐서 `ex`는 null. 9-4에서 실제 확인 예정
+
+- **(2026-11-27) 9-1 `LoggingInterceptor` 1차 리뷰** (컴파일 OK)
+  - 👍 시작 시간을 필드가 아니라 **request 속성**에 저장 (3번 개념 바로 적용), 속성 이름 `"startTime"`(흔한 `"start"`보다 겹칠 위험 적음), `return true`, `(long)` 형변환
+  - 🔧 `preHandle`에 요청 URI·HTTP 메서드 debug 로그가 없음
+  - 🔧 34행 처리 시간을 `log.error` → 정상 요청도 매번 ERROR로 찍힘(모니터링 알람·로그 검색이 망가짐). 정보성 로그는 `debug`(또는 `info`)
+  - 🔧 `ex != null`일 때 error 로그가 없음 → 여기가 `error` 자리, M8처럼 `ex`를 마지막 인자로
+  - 💅 STS가 만든 `postHandle` 틀(`TODO Auto-generated`, super 호출만) → 하는 일이 없으니 지우기 (default 메서드라 안 써도 됨, 9-2에서 필요하면 다시)
+  - (2026-11-27) 확인 문제 "LoginCheck가 앞이고 false면 Logging 로그는?" → "안 찍힌다" ⭕ 시작·끝 **둘 다** 안 찍힘: Logging의 preHandle까지 가지 않음 + afterCompletion은 **preHandle이 true였던 Interceptor만** 역순 호출 → 막힌 요청은 기록에 없음. 9-4에서 실제 확인
+  - → (2026-11-27) 🔧 1·2·3 **교육생 요청으로 튜터 작성**: preHandle debug "요청 시작: 메서드 URI", 처리 시간 `error` → `debug`(메서드·URI 포함), `ex != null`이면 `log.error(..., ex)`. 컴파일 OK. 💅 `postHandle` 정리는 교육생 몫으로 남김
 
 ### 🛠️ 트러블슈팅
 
 ### ❓ 내가 한 질문
+- **(2026-11-27) LoginCheck와 Logging 중 뭐가 앞인지 어디서 정하나?** → `WebConfig.addInterceptors()` 한 곳. ① 기본: `registry.addInterceptor(...)`를 **호출한 순서** ② 직접: `.order(n)`(작을수록 먼저, 안 쓰면 0 → 등록 순). Interceptor 클래스에 `@Order`를 붙이는 방식이 아님. 지금은 `LoggingInterceptor`가 아직 미등록이라 LoginCheck만 동작 → 9-3에서 정한다
 
 ### ⏭️ 남은 일
-- [ ] 9-1 `LoggingInterceptor` (시작 시간 → request 속성, `afterCompletion`에서 처리 시간 + `ex`)
+- [x] 개념 확인 1~4 (2026-11-27)
+- [ ] 9-1 `LoggingInterceptor` (시작 시간 → request 속성, `afterCompletion`에서 처리 시간 + `ex`) — 본문 완료, 💅 `postHandle` 빈 틀 지우기만 남음
 - [ ] 9-2 `handler`가 `HandlerMethod`일 때만 "Controller#메서드" 로그
 - [ ] 9-3 `WebConfig` 등록 (전체 + 정적 리소스 제외, `.order()`)
 - [ ] 9-4 순서 실험 (비로그인 `/review/write`)
@@ -1211,4 +1232,8 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - [ ] 셀프 체크 (교안 9장 Q1~Q5)
 
 ### 📌 다음 세션 시작점
-(2026-11-27) M9 시작: 개념 확인 → 9-1 명세 제시 단계
+~~(2026-11-27) M9 시작: 개념 확인 → 9-1 명세 제시 단계~~
+**(2026-11-27 세션 종료) 다음: 9-1 마무리 → 9-2**
+1. 교육생: `LoggingInterceptor`의 💅 `postHandle` 빈 틀(`TODO Auto-generated` + super 호출) 지우기 → 컴파일 확인 → 9-1 체크
+2. 9-2 명세 제시: `handler`가 `HandlerMethod`일 때만 "Controller#메서드" 로그 (교안 Interceptor 해당 장 다시 읽고, FW_09 `LoggingInterceptor` 관례 확인). 개념 Q: "정적 리소스 요청이면 handler는 무슨 타입일까?"
+3. 이어서 9-3 `WebConfig.addInterceptors()` 등록 + 순서(`.order()` 또는 호출 순서) — 앞서 한 질문(❓) 이어서
