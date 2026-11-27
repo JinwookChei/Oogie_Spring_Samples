@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.study.matzip.exception.ForbiddenException;
+import com.study.matzip.exception.RecordNotFoundException;
 import com.study.matzip.model.dao.ReviewDao;
 import com.study.matzip.model.dto.Review;
 import com.study.matzip.model.dto.ReviewSearch;
@@ -33,7 +34,7 @@ public class ReviewServiceImpl implements ReviewService {
 		Review review = reviewDao.selectDetail(rno);
 		if (review == null) {
 			// TODO: 8-4-2. "없음"을 뜻하는 커스텀 예외(RecordNotFoundException)로 바꾸기 (아래 checkReviewMno도)
-			throw new IllegalArgumentException("찾을 수 없는 리뷰 입니다.");
+			throw new RecordNotFoundException("찾을 수 없는 리뷰 입니다.");
 		}
 		return review;
 	}
@@ -74,7 +75,7 @@ public class ReviewServiceImpl implements ReviewService {
 		Review selectedReview = reviewDao.selectByRno(rno);
 		if(selectedReview == null) {
 			// TODO: 8-4-2. 여기도 RecordNotFoundException으로
-			throw new IllegalArgumentException("찾을 수 없는 리뷰 입니다.");
+			throw new RecordNotFoundException("찾을 수 없는 리뷰 입니다.");
 		}		
 		if(mno != selectedReview.getMno()) {
 			throw new ForbiddenException("작성자가 아니어서 접근 할 수 없습니다.");

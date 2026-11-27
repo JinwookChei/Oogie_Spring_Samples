@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.study.matzip.controller.ReviewController;
 import com.study.matzip.exception.ForbiddenException;
+import com.study.matzip.exception.RecordNotFoundException;
 import com.study.matzip.model.dto.Member;
 import com.study.matzip.model.service.ReviewService;
 
@@ -110,4 +111,19 @@ public class ReviewControllerTest {
 
 	// ⑤ TODO: 8-4-4. (교육생 작성) 없는 리뷰 상세 → 404 + error/404 + msg
 	//    Given: selectDetail(999)가 RecordNotFoundException을 던지게 / When: GET /review/999 / Then: 상태·View·msg
+	//    (교육생 요청으로 튜터 작성)
+	@Test
+	void detail_notFound_404() throws Exception {
+		// Given: 값을 반환하는 메서드 → when().thenThrow() 순서. 상세는 로그인 불필요 → sessionAttr 없음
+		when(reviewService.selectDetail(999))
+				.thenThrow(new RecordNotFoundException("찾을 수 없는 리뷰 입니다."));
+
+		// When: GET /review/999
+		mockMvc.perform(get("/review/999"))
+				.andDo(print())
+				// Then: MvcExceptionHandler.handleNotFound → 404 + error/404 + 예외 메시지(사용자용 문장)
+				.andExpect(status().isNotFound())
+				.andExpect(view().name("error/404"))
+				.andExpect(model().attribute("msg", "찾을 수 없는 리뷰 입니다."));
+	}
 }

@@ -1009,6 +1009,15 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - (2026-11-25) 8-1 관찰 표 예상(1~4번 교육생, 5~7번 튜터) + 피드백
 - (2026-11-25) 8-2 `views/error/4xx.jsp` 작성 (`${status}`·`${error}`·`<c:out value="${path}">`) → 400·405가 Whitelabel 대신 4xx.jsp, 404는 404.jsp 확인. 리뷰 2회
 - (2026-11-25) 8-2 실험용 `server.error.include-message=always`를 `application.properties`에 넣음 (curl 확인 전에 세션 종료)
+- (2026-11-27) 8-2 `include-message` 실험: curl 결과 `message`·`trace` 확인 → Q1~Q3 튜터 설명 → 교육생이 `application.properties`에서 실험 줄 삭제 (STS 저장이 디스크에 안 들어가 두 번 만에 반영) → **8-2 완료**
+- (2026-11-27) 8-3 `MvcExceptionHandler` 작성: 8-3-1 `@ControllerAdvice(basePackages=...controller)` + `@Slf4j`, 8-3-2 `handleForbidden`(교육생, 튜터가 같은 모양의 409 예시를 보여 줌), 8-3-3 `handleException`은 교육생이 `public`·View 이름까지 고친 뒤 **교육생 요청으로 튜터가 마무리**(error 로그 + `e` 인자, 고정 문구 msg) → 테스트 ①③ 🟢, ④는 8-5 대기
+- (2026-11-27) 8-4 시작 (교육생 요청으로 8-3 생각해 보기는 미루고 진행)
+- (2026-11-27) 8-4-1 `exception/RecordNotFoundException` 작성 (`extends RuntimeException`, 메시지 생성자 1개) → 한 번에 통과, 컴파일 OK
+- (2026-11-27) 8-4-2 `ReviewServiceImpl` 36·77행 → `RecordNotFoundException` (import 포함) → 리뷰 통과, 컴파일 OK
+- (2026-11-27) 8-4-3 `handleNotFound` 작성 (404, `error/404`, msg, warn) → 한 번에 통과. 테스트: MVC ①③ 🟢 · ④ 🔴(8-5 대기) / REST ② 🔴(가짜 Service가 아직 IAE → 8-4-5), ⑤⑥ 🔴(8-6) — 모두 예정대로
+- (2026-11-27) 8-4-4 MVC 테스트 ⑤ `detail_notFound_404` — **교육생 요청으로 튜터 작성** (`when().thenThrow()`, 로그인 없이 GET, 404·`error/404`·msg) → 🟢, 콘솔에 `handleNotFound`의 WARN 로그 확인. MVC 5개 중 ④만 🔴(8-5 대기)
+- (2026-11-27) 8-4-5 REST 테스트 ②의 가짜 Service 예외를 `RecordNotFoundException`으로 — **교육생 요청으로 튜터 수정**. 이제 실패 원인이 `RecordNotFoundException`(아무도 안 잡음)으로 바뀜 → 8-6에서 🟢 예정. REST 🔴 ②⑤⑥ 그대로
+- (2026-11-27) 8-2 `4xx.jsp` 15행 문구 수정 + "누가 이 화면을 고르나" JSP 주석 추가 — **교육생 요청으로 튜터가 작성** ("페이지가 없습니다"(404 뜻) → "요청을 처리할 수 없습니다. 값이나 요청 방식을 확인")
 
 ### 📚 배운 개념
 
@@ -1043,13 +1052,56 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - `/nope` → **404** → `404.jsp`가 `4xx.jsp`보다 먼저 선택됨 ✅ (정확한 코드 → 4xx 순서 확인)
   - 15행 문구("페이지가 없습니다")는 디스크상 아직 그대로 → 수정 남음
 
+- **(2026-11-27) 8-2 `include-message` 실험 Q1~Q3** → 교육생 "모르겠어, 설명해줘" → 튜터 설명
+  - Q1. `message`는 어디서? → `ReviewServiceImpl.java:36`의 `throw new IllegalArgumentException("찾을 수 없는 리뷰 입니다.")`. 생성자에 넘긴 문자열 = `e.getMessage()` → BasicErrorController가 JSON에 넣음. trace 첫 줄 `예외종류: 메시지`, 다음 줄 `at ...(파일:줄)`이 발생 위치
+  - Q2. DB 오류였다면? → SQL 문장·테이블/컬럼 이름·DB 종류·매퍼 파일 위치 + trace의 패키지 구조·기술 스택. 누구나 API를 부를 수 있으니 **공격자도 본다** = 정보 노출(Information Disclosure). 일반 사용자에게는 쓸모없음
+  - Q3. 기본값이 `never`인 이유 → 메시지 내용은 예외마다 달라 미리 알 수 없고 민감 정보가 섞일 수 있음 → **secure by default**, 필요하면 알고 켠다
+  - 핵심: 사용자에겐 고정 문구, 개발자에겐 로그(스택 트레이스까지) — **정보를 버리는 게 아니라 보낼 곳을 나눈다** → 8-3-3·8-6-5 TODO와 연결
+  - (교육생 정리) "개발자는 로그로 남겨서 보고, 바깥 사용자에게는 노출시키지 않으려는 것" → ⭕ 정확. 확인 문제 2번(500일 때 스택 트레이스는 어디로?)의 답 = 로그
+
+- **(2026-11-27) 8-3 `MvcExceptionHandler` 1차 리뷰** (테스트: ① 🟢, ③ 🔴 `View name expected:<error/500> but was:<review/list>`)
+  - 👍 `handleForbidden`: `@ExceptionHandler`+`@ResponseStatus(FORBIDDEN)`, `error/403`, msg 정확 → ① 통과. `exception =` 속성 이름 붙여 써도 같은 뜻
+  - 🔧 39행 `"충돌: {}"`는 예시(409) 복사 흔적 → 403 뜻에 맞게
+  - 🔧 `new ModelAndView()` 이름 비움 → Spring이 **요청 주소로 View 이름을 짐작**(`/review/list` → `review/list`) = ③ 실패 원인
+  - 🔧 500에 `e.getMessage()`를 msg로 → 테스트가 던진 "SQLSyntaxErrorException..."이 화면에 노출 → 고정 문구
+  - 🔧 `log.warn(e.getMessage())` → 서버 고장이니 `error`, 마지막 인자에 `e`를 넘겨야 스택 트레이스가 남음 (메시지만 넘기면 한 줄)
+
+- **(2026-11-27) 8-3-4 실험: `handleForbidden`의 `@ResponseStatus`를 빼면?** → 교육생 실행 결과 **200** ⭕
+  - 이유: `@ExceptionHandler`가 예외를 잡아 정상적으로 View를 돌려줌 → Spring 입장에선 "처리 완료" → 상태를 따로 안 정하면 기본값 200 OK
+  - 문제: 화면은 에러인데 브라우저·검색 엔진·모니터링·API 호출 쪽은 "성공"으로 봄 → 상태 코드는 Advice에서 **반드시** 직접 정한다 (교안 Part 3 Q5)
+
+- **(2026-11-27) 8-4 `Exception`도 다 잡는데 왜 `handleNotFound`로 가나?** → 교육생: "RecordNotFoundException이 가장 자식이라서 가깝다" ⭕ → 보충: 상속 단계가 가장 적게 떨어진 타입의 핸들러를 고름(0단계 vs 2단계). 메서드 **순서는 무관**
+- **(2026-11-27) 8-4 개념: 부모를 IAE로 하면?** → `ReviewController` 53행 `catch (IllegalArgumentException e)`가 자식인 새 예외까지 잡아 Advice로 못 감 → 404 불가. `RuntimeException` 상속이면 IAE와 형제라 catch를 빠져나가 Advice로 간다 (튜터 설명)
+
+- **(2026-11-27) 8-4-6 `404.jsp` 1차 리뷰** (실행: `/review/9999` → 404인데 `페이지(<code></code>)가 없습니다` = otherwise로 감)
+  - 👍 `<c:choose>`/`<c:when>`/`<c:otherwise>` 구조, msg도 `<c:out>`, 기존 path 문장 유지
+  - 🔧 18행 `test="${msg} != null"` → EL은 `${ }` **안만** 계산된다. 바깥의 ` != null`은 그냥 글자 → 결과가 "찾을 수 없는 리뷰 입니다. != null"이라는 **문자열** → boolean으로 바꾸면 "true"가 아니라서 항상 false. 조건 전체를 `${ }` 안에 (`not empty msg` 권장: null과 빈 문자열 둘 다 거름)
+  - 💡 19행 msg를 `<code>`로 감쌈 → `<code>`는 주소·코드용, 문장은 `<p>`만. 12~13행 주석은 이제 Advice도 온다로 갱신
+- **(2026-11-27) 8-4-6 `404.jsp` 2차 리뷰** → `${msg != null}`로 고침 ⭕. 실행: `/review/9999` → 404 + "찾을 수 없는 리뷰 입니다." / `/nope`(Accept: text/html) → 404 + path 문장 ✅ 두 길 모두 동작
+  - 💡 `!= null`은 빈 문자열 `""`을 못 거름 → `not empty msg` 권장 (지금 코드에선 빈 msg가 올 일이 없어 동작은 같음). `<code>` 감싸기·12~13행 주석은 그대로 (선택)
+  - 덤: curl로 `/nope`를 그냥 부르면 JSON(`Accept: */*` → `error()`), `-H "Accept: text/html"`이면 JSP → 8-1 6·7번과 같은 원리
+
+- **(2026-11-27) 8-5 `ReviewController` 1차 리뷰** — 교육생이 판단 표를 쓰지 않고 **catch 10개를 전부 삭제** → MVC 테스트 5/5 🟢 (④ 포함)
+  - ⭕ 1·4·5·9 (IAE catch) 삭제: 8-4-2 이후 Service가 IAE를 안 던져 **죽은 코드**였음 → 404는 Advice가 담당
+  - ⭕ 6·10 (Forbidden catch) 삭제: 302 redirect가 사라져 403 + `error/403` → 테스트 ④ 🟢 = M5 셀프 체크 Q1의 답("Advice가 있으면 이 catch는 필요 없다")을 직접 확인
+  - ❌ 3·7 (`InvalidImageException`) 삭제는 되돌려야 함: 사용자가 **다른 파일을 골라 다시 보내면 되는** 입력 오류 → 지금은 `handleException`이 잡아 **500 + "일시적인 오류"**(원인을 알 수 없음, 서버 잘못으로 기록, 쓴 내용도 잃음). 테스트가 초록인 건 이 경우를 검사하는 테스트가 없기 때문
+  - → (2026-11-27) 3·7 `InvalidImageException` catch를 **교육생 요청으로 튜터가 복구** (`writeReview` → 작성 폼, `editReview` → 수정 폼 + flash msg). 컴파일·MVC 테스트 5/5 🟢
+  - → (2026-11-27) 2·8 교육생 판단: **삭제 유지** (사진 저장 실패 → `handleException` 500). (이유 미기재)
+  - → (2026-11-27) 💅 정리는 **교육생 요청으로 튜터가 수행**: 안 쓰는 import 2개(`UncheckedIOException`·`ForbiddenException`), `editForm`의 `rediAttr` 매개변수 삭제, 8-5 TODO 주석 → 정리 결과 주석, `detail.jsp` `error` 분기(`c:choose`) 제거 + 들여쓰기. 전체 테스트 33개 중 실패는 REST ②⑤⑥(8-6 예정)뿐, `/review/1` 상세 화면 정상
+  - △ 2·8 (`UncheckedIOException`) 삭제: 정답 없음. 삭제하면 500 화면 + 작성 내용 잃음, 남기면 폼으로 돌아가 재시도. **이유 쓰기** 남음
+  - 💅 안 쓰는 import(`UncheckedIOException`·`ForbiddenException`·`InvalidImageException`), `editForm`의 안 쓰는 `rediAttr` 매개변수, `int rno;` 확정 대입 주석이 이제 안 맞음(한 줄로 합칠 수 있음), `detail.jsp` 14~15행 `error` 분기는 이제 값을 넣는 곳이 없음
+
 ### 🛠️ 트러블슈팅
+- **(2026-11-27) properties의 `include-message`를 주석 처리했는데도 응답에 `message`와 `trace`(스택 트레이스 전체)가 나왔다**
+  - 원인: `pom.xml`의 `spring-boot-devtools`가 실행 시 개발용 기본값으로 `server.error.include-message`·`include-stacktrace`를 `always`로 덮어씀. 운영(jar 실행)에서는 devtools가 꺼져 `never`로 돌아감
+  - 교훈: 내 PC의 에러 응답 ≠ 운영의 에러 응답 → 무엇을 보여 줄지는 설정에 맡기지 말고 Advice(8-3·8-6)로 직접 정한다
 - **(2026-11-24) 튜터가 비워 둔 `MvcExceptionHandler.java`가 예전(M5) 완성 코드로 되돌아가 있었다 + 33행 `Excep//tion` 컴파일 에러**
   - 추정 원인: STS 편집기 탭에 예전 내용이 열린 채로 저장됨 (파일이 밖에서 바뀌어도 열린 탭의 내용이 다시 덮어씀)
   - 해결: 교육생 선택으로 M8 뼈대로 다시 되돌림 → `test-compile` 통과 확인 후 커밋
   - 예방: Claude가 파일을 바꾼 뒤에는 STS에서 그 탭을 **저장하지 말고 닫고**, 프로젝트 `F5`(Refresh) 후 다시 연다
 
 ### ❓ 내가 한 질문
+- **(2026-11-27) trace가 뭐야?** → 스택 트레이스. 예외가 터진 곳(맨 위 `at`)부터 그곳을 부른 메서드들(아래로 갈수록 바깥 호출)을 차례로 적은 호출 스택 기록. STS 콘솔의 빨간 `at ...` 줄들이 바로 이것. 개발자에겐 버그 위치를 알려 주는 지도(로그에 남김), 외부엔 서버 내부 설계도(응답에 노출 금지)
 - **(2026-11-25) 처음엔 내 Controller가 불리고, 예외를 던지면 ErrorController가 잡아서 에러 페이지로 가나?** → 반은 맞음. ① ErrorController는 예외를 '잡는' 게 아니다: 아무도 안 잡은 예외가 Tomcat까지 올라가면 Tomcat이 `/error`로 **두 번째 요청(내부 forward)**을 보낸다 → 그 요청을 받는 평범한 Controller가 BasicErrorController. 예외 정보는 request 속성으로 전달. ② 내 Controller가 **아예 안 불리는** 경우도 있다: `/nope`(404)·405는 Controller 선택 전 실패, `/review/abc`(400)는 선택은 됐지만 파라미터 변환에서 실패해 메서드 본문이 실행 안 됨 → 이 경우는 예외가 아니라 Spring이 `sendError(상태 코드)`
 - **(2026-11-25) EL은 어떻게 쓰나?** → `${이름}`. 4개 scope(page→request→session→application)를 차례로 찾아 처음 나온 값을 출력, 없으면 빈 문자열(에러 X). Controller의 `Model`·BasicErrorController의 `ModelAndView` 값은 결국 **request 속성**이 된다 → 같은 `${이름}`으로 꺼냄. 이미 `500.jsp`의 `${msg}`, `${root}`가 EL
 - **(2026-11-25) `BasicErrorController`는 어디 있나?** → 우리 코드가 아니라 라이브러리 jar 안. Boot 4.1.2 기준 `spring-boot-webmvc-4.1.2.jar`의 `org.springframework.boot.webmvc.autoconfigure.error` 패키지 (Boot 3까지는 `spring-boot-autoconfigure`의 `...autoconfigure.web.servlet.error`). `ErrorMvcAutoConfiguration`이 자동으로 빈 등록. STS `Ctrl+Shift+T`(Open Type)로 소스 열기. 핵심: `@RequestMapping("/error")` + `errorHtml()`(`produces=text/html`, ModelAndView) / `error()`(그 외, JSON) → 8-1 6·7번 차이의 정체
@@ -1059,10 +1111,10 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 
 ### ⏭️ 남은 일
 - [x] 8-1 관찰 표 7줄 (예상 먼저 쓰기) — 예상·피드백까지 함. **실제 실행 확인은 건너뜀** → 8-2에서 3·5·7번을 실행할 때 같이 확인
-- [ ] 8-2 `error/4xx.jsp` ✅ 작성·확인 / 남은 것: 15행 문구 수정, `include-message` 실험(curl) 후 **줄 지우기**, (선택) DefaultErrorAttributes
-- [ ] 8-3 `MvcExceptionHandler` → MVC ①③ 🟢
-- [ ] 8-4 `RecordNotFoundException` + 404 + 테스트 ⑤
-- [ ] 8-5 `ReviewController` catch 정리 판단 기록 → MVC ④ 🟢
+- [x] 8-2 `error/4xx.jsp` 작성·문구 수정, `include-message` 실험 후 줄 삭제 (2026-11-27). (선택) DefaultErrorAttributes는 건너뜀
+- [ ] 8-3 `MvcExceptionHandler` → MVC ①③ 🟢 ✅ (2026-11-27). 8-3-4 실험 끝(200 확인 → `@ResponseStatus` 복구). 미룸: 39행 로그 문구 `"충돌"` → 403에 맞게, 브라우저 확인, `/review/abc` 생각해 보기(`Exception` 전체를 잡게 된 뒤 몇 번?)
+- [x] 8-4 `RecordNotFoundException` + 404 + 테스트 ⑤ — 8-4-1~8-4-4 ✅ (2026-11-27). 8-4-5·8-4-6 ✅ → **8-4 완료** (2026-11-27)
+- [x] 8-5 `ReviewController` catch 정리 판단 기록 → MVC ④ 🟢 (2026-11-27). 미룸: 브라우저로 남의 리뷰 수정 주소 → 403 확인
 - [ ] 8-6 `RestExceptionHandler` → REST ②⑤⑥⑦ 🟢
 - [ ] 8-7 전/후 비교, 셀프 체크 14문제
 

@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.study.matzip.exception.RecordNotFoundException;
 import com.study.matzip.model.dto.Member;
 import com.study.matzip.model.dto.Review;
 import com.study.matzip.model.service.ReviewService;
@@ -55,8 +56,9 @@ public class ReviewRestControllerTest {
 	// ② 없는 리뷰 → RestExceptionHandler가 404 ProblemDetail(JSON)로 바꾼다 (500.jsp가 아님)
 	@Test
 	void detail_notFound() throws Exception {
+		// 8-4-5: 진짜 Service가 "없음"을 RecordNotFoundException으로 던지게 바뀜 → 가짜 Service도 맞춘다 (교육생 요청으로 튜터 수정)
 		when(reviewService.selectDetail(999))
-				.thenThrow(new IllegalArgumentException("찾을 수 없는 리뷰 입니다."));
+				.thenThrow(new RecordNotFoundException("찾을 수 없는 리뷰 입니다."));
 
 		mockMvc.perform(get("/api/review/999"))
 				.andDo(print())
