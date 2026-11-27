@@ -199,13 +199,13 @@ review (rno PK AI, mno FK → member, title, content, rating 1~5, image_name NUL
 M5·M7에서 튜터가 대부분 써 준 예외 처리를 **비워 놓고 다시 직접** 쓴다. (교육생 요청, 2026-11-24)
 튜터가 세팅해 둔 것: Advice 2개를 TODO 뼈대로 비움, Service·Controller에 `TODO: 8-x` 주석, **목표 테스트 5개**(MVC ③④, REST ⑤⑥ + 기존 ①②가 빨간 불)
 
-- [ ] 👀+🔍 8-1 관찰: Advice 없이 7가지 요청(남의 글 삭제, 없는 리뷰, `/review/abc`, 없는 URL, 405, API를 브라우저로·curl로) → 상태 코드·화면·처리 담당 표 채우기
-- [ ] 🔍 8-2 BasicErrorController: `error/4xx.jsp`, `server.error.include-message` 실험 후 되돌리기, 👀 `ErrorAttributes`
-- [ ] 🔍 8-3 `MvcExceptionHandler`: 범위 지정, 403·500(고정 문구 + 스택 트레이스 로그), `@ResponseStatus` 빼기 실험, `/review/abc`가 몇 번이 되는지 설명
-- [ ] 🔍 8-4 커스텀 예외 `RecordNotFoundException`(샘플 이름) → Service 2곳, 화면 404, `error/404.jsp`에 msg, 테스트 ⑤ 작성 (`IllegalArgumentException`→404 매핑의 문제를 설명할 수 있어야 함)
-- [ ] 🔍 8-5 `ReviewController` try-catch 정리: "사용자가 그 자리에서 고칠 수 있나?" 기준으로 남김/삭제 판단 기록 (M5 ⏭️ Forbidden catch 정리 포함)
-- [ ] 🔍 8-6 `RestExceptionHandler`: 404·403·500·**415**(Exception 핸들러가 Spring 표준 예외를 삼키는 것을 테스트 ⑥으로 재현 후 해결), 테스트 ⑦ 작성, (선택) `code` 필드
-- [ ] 👀 8-7 정리: 전/후 표 비교, git의 M5·M7 코드와 비교, Advice가 잡는/못 잡는 예외(Filter → M13 JWT 연결)
+- [x] 👀+🔍 8-1 관찰: Advice 없이 7가지 요청(남의 글 삭제, 없는 리뷰, `/review/abc`, 없는 URL, 405, API를 브라우저로·curl로) → 상태 코드·화면·처리 담당 표 채우기
+- [x] 🔍 8-2 BasicErrorController: `error/4xx.jsp`, `server.error.include-message` 실험 후 되돌리기, 👀 `ErrorAttributes`
+- [x] 🔍 8-3 `MvcExceptionHandler`: 범위 지정, 403·500(고정 문구 + 스택 트레이스 로그), `@ResponseStatus` 빼기 실험, `/review/abc`가 몇 번이 되는지 설명
+- [x] 🔍 8-4 커스텀 예외 `RecordNotFoundException`(샘플 이름) → Service 2곳, 화면 404, `error/404.jsp`에 msg, 테스트 ⑤ 작성 (`IllegalArgumentException`→404 매핑의 문제를 설명할 수 있어야 함)
+- [x] 🔍 8-5 `ReviewController` try-catch 정리: "사용자가 그 자리에서 고칠 수 있나?" 기준으로 남김/삭제 판단 기록 (M5 ⏭️ Forbidden catch 정리 포함)
+- [x] 🔍 8-6 `RestExceptionHandler`: 404·403·500·**415**(Exception 핸들러가 Spring 표준 예외를 삼키는 것을 테스트 ⑥으로 재현 후 해결), 테스트 ⑦ 작성, (선택) `code` 필드
+- [x] 👀 8-7 정리: 전/후 표 비교, git의 M5·M7 코드와 비교, Advice가 잡는/못 잡는 예외(Filter → M13 JWT 연결) — 셀프 체크 8~14번 남음, `/review/abc` 400→500은 ⏸️ 알려진 한계
 
 **셀프 체크**: 안내서 6장 14문제 (교안 Part 3 Q + M5·M7에서 "모르겠어"였던 문제 재도전)
 
@@ -418,3 +418,4 @@ Legacy 초기화(web.xml, Root/Servlet 컨텍스트), FactoryBean·Auto Configur
 | 2026-11-24 | M8 시작 (예외 처리 다시) | 교육생 요청으로 **M8 예외 처리 다시 보기** 추가, 아직 시작 안 한 마일스톤 번호를 하나씩 밈(Interceptor 심화 M9, REST 심화 M10, Security M11·M12, JWT M13, AI는 M14~). 튜터 세팅: Advice 2개를 TODO 뼈대로 비움, Service·Controller TODO 주석, 목표 테스트 4개 추가(🔴 6 / 🟢 4 확인), 안내서 `guides/M8_예외처리.md`. **다음: 8-1 관찰** |
 | 2026-11-24 | 세션 종료 (M8 세팅만) | 커밋 `7f3ab76` 푸시(🔴 6개 포함, 의도됨). 커밋 직전 STS 열린 탭이 `MvcExceptionHandler`를 예전 코드 + `Excep//tion` 오타로 덮어씀 → 뼈대로 복구. `FW_11_sec_sol.zip`은 실제 API 키 때문에 gitignore(로컬만). **다음: 8-1 관찰부터** (`STUDY_LOG.md` M8 📌) |
 | 2026-11-25 | M8 8-1 끝, 8-2 진행 중 | 8-1 예상 표 + 피드백. 8-2 `error/4xx.jsp` 작성(400·405 → 4xx.jsp, 404 → 404.jsp 확인). 질문: 상태 코드, BasicErrorController 위치(Boot 4 `spring-boot-webmvc`), EL, `/error` 두 번째 요청. `include-message=always` 실험 줄이 커밋에 남아 있음 → **다음: 4xx.jsp 15행 문구, curl 실험 후 줄 삭제 → 8-3** |
+| 2026-11-27 | M8 8-2~8-7 (셀프 체크 7/14) | 8-2 curl 실험(devtools가 message·trace 노출) 후 줄 삭제. 8-3 MVC Advice 403·500, `@ResponseStatus` 빼기 → 200 확인. 8-4 `RecordNotFoundException` + 404. 8-5 catch 정리(InvalidImage만 남김). 8-6 REST Advice 404·403·415·500 (Exception 핸들러가 415를 500으로 삼키는 것 재현 → `HttpMediaTypeNotSupportedException` 핸들러). 테스트 34개 통과. 흐름 시각화 `guides/M8_예외처리_흐름.html`. 일부 코드는 교육생 요청으로 튜터 작성. **다음: 셀프 체크 8~14 → M8 Notion 업로드 → M9** |

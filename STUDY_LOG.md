@@ -1111,6 +1111,30 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - → (2026-11-27) 8-6-4 `handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException)` — **교육생 요청으로 튜터 작성** (415, 사용자용 detail, warn 로그에 `e.getContentType()`), `handleException`은 8-6-5 주석 아래로 이동 → REST 6/6 🟢, 콘솔에 ERROR 대신 WARN 한 줄
   - → (2026-11-27) REST 테스트 ⑦ `detail_forbidden_403` — **교육생 요청으로 튜터 작성** (테스트 ② 본뜸: 403, problem+json, `$.status`, `$.detail`) → **전체 34개 BUILD SUCCESS** (1개는 원래 `@Disabled` 실험)
 
+- **(2026-11-27) 8-7 전/후 비교** (튜터가 실행 중인 앱에 8-1의 요청을 다시 보냄. 1번은 테스트 ①로 확인)
+
+  | # | 요청 | 전 (8-1, Advice 없음) | 지금 (M8 후) | 누가 처리? |
+  |---|---|---|---|---|
+  | 1 | 남의 리뷰 삭제 | 500 `error/500.jsp` | **403** `error/403.jsp` | `MvcExceptionHandler.handleForbidden` |
+  | 2 | `/review/9999` | 200, 상세 화면에 에러 문구 | **404** `error/404.jsp` + msg | `MvcExceptionHandler.handleNotFound` |
+  | 3 | `/review/abc` | 400 Whitelabel → 8-2 후 `4xx.jsp` | ⚠️ **500** `error/500.jsp` | `MvcExceptionHandler.handleException` (Spring 표준 예외를 삼킴) |
+  | 4 | `/nope` | 404 `404.jsp` | 404 `404.jsp` (path 문장) | BasicErrorController (Controller 선택 전) |
+  | 5 | GET `/review/1/delete` | 405 Whitelabel → 8-2 후 `4xx.jsp` | 405 `4xx.jsp` | BasicErrorController (Controller 선택 전) |
+  | 6 | 브라우저 `/api/review/9999` | 500 `error/500.jsp` (HTML) | **404** ProblemDetail (JSON) | `RestExceptionHandler.handleRecordNotFoundException` |
+  | 7 | curl `/api/review/9999` | 500 기본 JSON | **404** ProblemDetail (JSON) | 〃 |
+
+  - 6·7번: 예전엔 Accept에 따라 HTML/JSON이 갈렸지만(BasicErrorController의 `errorHtml()`/`error()`), 이제는 **Advice가 먼저 처리**해서 둘 다 같은 JSON
+  - 3번 ⚠️: 8-3에서 미룬 질문의 답. `/review/abc`의 변환 실패 예외는 Controller가 선택된 **뒤**에 나서 범위 안 → `Exception` 핸들러가 400을 500으로 바꿈. 8-6-4(415)와 같은 현상
+
+- **(2026-11-27) M8 셀프 체크 1~7번 답과 피드백**
+  - 1 "모르겠어" → BasicErrorController(`ErrorMvcAutoConfiguration`이 자동 등록). 아무도 안 잡은 예외/`sendError` → Tomcat이 `/error`로 내부 forward → BasicErrorController가 `error/{코드}` → `error/{4xx|5xx}` → `error` 순으로 화면 선택
+  - 2 "404→404, 나머지 error.jsp" ⭕ (405는 405.jsp·4xx.jsp가 없고, 500도 500.jsp·5xx.jsp가 없어 마지막 기본 View `error`)
+  - 3 "코드가 밖으로 누출" △ → 정확히는 **내부 정보**(예외 클래스 이름, SQL이 섞인 메시지, 스택 트레이스 = 패키지 구조·기술 스택)가 공격자에게 보임
+  - 4 "모르겠어" → 부족한 점: 응답 모양이 고정, 예외 종류별로 상태를 못 바꿈(우리 예외도 전부 500), 메시지 노출이 설정·devtools에 좌우됨. 해결: `@ControllerAdvice`/`@RestControllerAdvice` + `@ExceptionHandler` (공통 필드만 더하려면 `ErrorAttributes`)
+  - 5 "HttpStatus가 정의 안 됨" △ → 결과는 **200 OK** (예외가 "처리됨" → 정상 응답, 8-3-4 실험)
+  - 6 ⭕ 더 가까운 타입이 이긴다
+  - 7 ⭕ → 보충: Controller가 선택되기 전 실패라 범위 검사에 쓸 Controller가 없음 → BasicErrorController가 404.jsp
+
 ### 🛠️ 트러블슈팅
 - **(2026-11-27) properties의 `include-message`를 주석 처리했는데도 응답에 `message`와 `trace`(스택 트레이스 전체)가 나왔다**
   - 원인: `pom.xml`의 `spring-boot-devtools`가 실행 시 개발용 기본값으로 `server.error.include-message`·`include-stacktrace`를 `always`로 덮어씀. 운영(jar 실행)에서는 devtools가 꺼져 `never`로 돌아감
@@ -1137,17 +1161,17 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - [x] 8-4 `RecordNotFoundException` + 404 + 테스트 ⑤ — 8-4-1~8-4-4 ✅ (2026-11-27). 8-4-5·8-4-6 ✅ → **8-4 완료** (2026-11-27)
 - [x] 8-5 `ReviewController` catch 정리 판단 기록 → MVC ④ 🟢 (2026-11-27). 미룸: 브라우저로 남의 리뷰 수정 주소 → 403 확인
 - [x] 8-6 `RestExceptionHandler` → REST ②⑤⑥⑦ 🟢 (2026-11-27). 선택 과제(8-6-6 `code` 필드, 깨진 JSON → 400)는 건너뜀
-- [ ] 8-7 전/후 비교, 셀프 체크 14문제
+- [ ] 8-7 전/후 비교 ✅, 예전 코드 비교 ✅, 잡는/못 잡는 예외 표 ✅ (2026-11-27). 남은 것: 셀프 체크 14문제
+- ⏸️ **알려진 한계 (교육생 판단으로 넘어감, 2026-11-27)**: `/review/abc`가 400 → 500. 숫자 변환 실패(Spring 표준 예외)를 `MvcExceptionHandler.handleException`이 삼킴. 고치려면 8-6-4처럼 그 예외 전용 400 메서드 추가
 
 ### 📌 다음 세션 시작점
-**(2026-11-25 세션 종료) 다음: 8-2 마무리 → 8-3.** 8-1 끝, 8-2는 `4xx.jsp` 작성·실행 확인까지.
-1. 시작 전에: `git pull` → STS `MatzipNote` `F5` → `MvcExceptionHandler`·`RestExceptionHandler`가 아직 **TODO 뼈대**인지 확인
-2. `4xx.jsp` **15행 문구 고치기**: "페이지가 없습니다"는 404의 뜻 → 이 화면엔 400·405가 온다 → "요청을 처리할 수 없다" 방향으로. (선택) "BasicErrorController가 고르는 화면" 주석
-3. ⚠️ **`application.properties` 맨 아래 `server.error.include-message=always`가 실험용으로 커밋돼 있다** → 앱 재시작 → `curl -i http://localhost:8080/api/review/9999` → 새로 생긴 필드·문장 확인 → **그 줄 지우기**. 질문: 그 문장은 어디서 왔나? DB 오류였다면? 왜 기본값이 `never`?
-4. 열린 퀴즈 3개: ① `views/errors/404.jsp`(s 붙임)면? ② 8-3 이후 남의 글 삭제의 403.jsp는 자동 매핑 vs 직접 지정? ③ `/review/abc`(400)는 ReviewController 담당 Advice가 잡나, BasicErrorController로 가나?
-5. 그다음 8-3 `MvcExceptionHandler` (안내서 4장 8-3)
+**(2026-11-27) 다음: M8 셀프 체크 8~14번 → M8 완료 → Notion 업로드 → M9.** 8-1~8-7 작업은 끝, 전체 테스트 34개 통과(1개는 원래 `@Disabled`).
+1. 시작 전에: `git pull` → STS `MatzipNote` `F5` (튜터가 바꾼 파일이 많다: `ReviewController`·`RestExceptionHandler`·두 테스트·`detail.jsp`)
+2. 셀프 체크 1~7번은 답·피드백 완료 (🙋 참고). **8~14번 답하기**: 8 BasicErrorController의 `errorHtml()`/`error()`, 9 → 8-5, 10 화면용/API용을 합치면?, 11 `basePackageClasses`는 클래스 하나만?, 12 → 8-4, 13 이메일 중복은 왜 Controller catch?, 14 → 8-6-4
+3. M8 완료 처리: `PLAN.md` M8 제목에 ✅, STUDY_LOG M8 제목에 ✅ + Notion `🍜 맛집 노트 실습 기록` 아래 `M8. 예외 처리 다시 보기` 페이지
+4. 미룬 것(선택): ⏸️ `/review/abc` 400→500 (변환 실패 예외 전용 400 메서드), 39행 로그 문구 `"충돌"`, 8-5 `UncheckedIOException` 삭제 이유 한 줄, `404.jsp` `not empty`·`<code>`·주석, REST 500 detail 문구(title과 같음), 8-6-6 `code` 필드, 깨진 JSON → 400, 브라우저로 남의 글 수정 403 확인
 
 현재 상태 메모
-- 커밋 시점 `test-compile` 통과. 테스트는 여전히 🔴 6개(의도된 출발점, 8-3부터 초록으로)
-- `SampleDemo/FW_11_sec_sol.zip`은 `.gitignore` → 로컬에만 있음 (M11·M12 때 다른 PC면 직접 옮기기)
+- 흐름 시각화: `guides/M8_예외처리_흐름.html` (브라우저로 열기)
+- `SampleDemo/FW_11_sec_sol.zip`은 `.gitignore` → 로컬에만 있음
 - git stash의 예전 "M3 edit draft"는 아직 남아 있음
