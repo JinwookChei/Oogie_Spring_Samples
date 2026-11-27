@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.study.matzip.exception.ForbiddenException;
 import com.study.matzip.exception.RecordNotFoundException;
 import com.study.matzip.model.dto.Member;
 import com.study.matzip.model.dto.Review;
@@ -137,4 +138,20 @@ public class ReviewRestControllerTest {
 
 	// ⑦ TODO: 8-6-3. (교육생 작성) 남의 리뷰 관련 API에서 ForbiddenException → 403 ProblemDetail
 	//    지금 API에는 수정·삭제가 없다 → 상세(selectDetail)가 ForbiddenException을 던지게 가짜 Service를 설정해서 확인해도 된다
+	//    (교육생 요청으로 튜터 작성. 테스트 ②를 본뜸)
+	@Test
+	void detail_forbidden_403() throws Exception {
+		// Given: 가짜 Service가 "남의 리뷰"라고 거절한다 (M10에서 PUT·DELETE를 만들면 실제로 이 길을 탄다)
+		when(reviewService.selectDetail(1))
+				.thenThrow(new ForbiddenException("작성자가 아니어서 접근 할 수 없습니다."));
+
+		// When: GET /api/review/1
+		mockMvc.perform(get("/api/review/1"))
+				.andDo(print())
+				// Then: RestExceptionHandler.handleForbiddenException → 403 ProblemDetail(JSON)
+				.andExpect(status().isForbidden())
+				.andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON))
+				.andExpect(jsonPath("$.status").value(403))
+				.andExpect(jsonPath("$.detail").value("작성자가 아니어서 접근 할 수 없습니다."));
+	}
 }

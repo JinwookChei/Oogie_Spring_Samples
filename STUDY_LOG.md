@@ -1091,6 +1091,26 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - △ 2·8 (`UncheckedIOException`) 삭제: 정답 없음. 삭제하면 500 화면 + 작성 내용 잃음, 남기면 폼으로 돌아가 재시도. **이유 쓰기** 남음
   - 💅 안 쓰는 import(`UncheckedIOException`·`ForbiddenException`·`InvalidImageException`), `editForm`의 안 쓰는 `rediAttr` 매개변수, `int rno;` 확정 대입 주석이 이제 안 맞음(한 줄로 합칠 수 있음), `detail.jsp` 14~15행 `error` 분기는 이제 값을 넣는 곳이 없음
 
+- **(2026-11-27) 8-6 `RestExceptionHandler` 중간 점검** (REST 테스트: ② 🟢, ⑤⑥ 🔴)
+  - 👍 `@Order(Ordered.HIGHEST_PRECEDENCE)`, `@Slf4j`, 404 메서드 `ProblemDetail.forStatusAndDetail(NOT_FOUND, 메시지)` → 테스트 ② 통과
+  - 🔧 `@ControllerAdvice` → `@RestControllerAdvice`: 지금은 Spring이 `ProblemDetail` 반환값을 `ResponseEntity`처럼 특별 취급해서 우연히 동작. 다른 객체를 반환하면 View 이름으로 해석될 수 있음 → API용이라는 뜻도 드러내기
+  - 🔧 `basePackages="..."` 문자열 → TODO는 `basePackageClasses`(클래스로 지정): 오타면 컴파일 에러, 패키지 이름을 바꿔도 따라감
+  - 🔧 404 메서드에 warn 로그, `public` / 💅 안 쓰는 import `HttpStatusCode`
+
+- **(2026-11-27) 8-6 2차 리뷰** — 교육생이 1차 지적 반영(`@RestControllerAdvice(basePackageClasses = ReviewRestController.class)`, 404 warn 로그·`public`, import 정리) + 403·500 메서드 작성. 403 warn 로그·500 error 로그(`e` 인자)는 **교육생 요청으로 튜터 작성**
+  - 테스트: ② 🟢 / ⑤ 🔴 `No value at JSON path "$.detail"` / ⑥ 🔴 `expected:<415> but was:<500>`
+  - 🔧 500 메서드가 `ProblemDetail.forStatus(...)` → detail이 아예 없음. 테스트 ⑤는 "detail이 **있고** SQL이 없다"를 검사 → `forStatusAndDetail(..., 고정 문구)`
+  - 💅 500 메서드가 8-6-4 TODO 주석 밑에 있음 → 8-6-5 주석 밑으로 옮기면 TODO와 코드가 맞음
+  - ⑥이 500이 된 것 = 8-6-4 실험의 첫 관찰 ("모든 예외 → 500" 핸들러가 Spring 표준 예외까지 삼킴)
+
+- **(2026-11-27) 8-6-4 실험 결과** — 500 detail을 `forStatusAndDetail`로 고쳐 **테스트 ⑤ 🟢**. 테스트 ⑥은 `expected:<415> but was:<500>`
+  - `print()`의 `Resolved Exception` → `Type = org.springframework.web.HttpMediaTypeNotSupportedException` (Spring 표준 예외, 원래 Spring이 415로 바꿔 줌)
+  - 콘솔에도 `ERROR ... API 처리 중 예상하지 못한 오류: Content-Type 'application/x-www-form-urlencoded;charset=UTF-8' is not supported` + 스택 트레이스 → 클라이언트 실수가 **서버 장애처럼** 기록됨
+  - 원인: `@RequestBody`를 준비하다 난 예외 = Controller가 선택된 **뒤** → 범위 안 → 가장 가까운 메서드가 `Exception`뿐 → 500으로 삼킴 (교안 12장 "어색한 점 찾기"와 같은 현상)
+  - 💡 detail `"Internal Server Error"`는 title과 겹침 → 사용자용 문장 권장 (선택)
+  - → (2026-11-27) 8-6-4 `handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException)` — **교육생 요청으로 튜터 작성** (415, 사용자용 detail, warn 로그에 `e.getContentType()`), `handleException`은 8-6-5 주석 아래로 이동 → REST 6/6 🟢, 콘솔에 ERROR 대신 WARN 한 줄
+  - → (2026-11-27) REST 테스트 ⑦ `detail_forbidden_403` — **교육생 요청으로 튜터 작성** (테스트 ② 본뜸: 403, problem+json, `$.status`, `$.detail`) → **전체 34개 BUILD SUCCESS** (1개는 원래 `@Disabled` 실험)
+
 ### 🛠️ 트러블슈팅
 - **(2026-11-27) properties의 `include-message`를 주석 처리했는데도 응답에 `message`와 `trace`(스택 트레이스 전체)가 나왔다**
   - 원인: `pom.xml`의 `spring-boot-devtools`가 실행 시 개발용 기본값으로 `server.error.include-message`·`include-stacktrace`를 `always`로 덮어씀. 운영(jar 실행)에서는 devtools가 꺼져 `never`로 돌아감
@@ -1101,6 +1121,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
   - 예방: Claude가 파일을 바꾼 뒤에는 STS에서 그 탭을 **저장하지 말고 닫고**, 프로젝트 `F5`(Refresh) 후 다시 연다
 
 ### ❓ 내가 한 질문
+- **(2026-11-27) RestExceptionHandler와 MvcExceptionHandler가 어떤 흐름으로 동작하는지 동적 시각화로 보여 줘** → 튜터가 `guides/M8_예외처리_흐름.html` 작성 (브라우저로 열기). 시나리오 8개(화면 403·404·500·Controller catch / API 404·403·500 / Advice 없음)를 단계별로 진행. 핵심 3가지: ① 어느 Advice? → Controller의 **패키지**(basePackages/basePackageClasses), 범위가 겹칠 때만 `@Order` ② 어느 메서드? → **상속 단계가 가장 가까운** 예외 타입 ③ Advice가 처리하면 "처리됨" → Tomcat `/error`까지 안 감. 화면용은 `ModelAndView` → ViewResolver → JSP, API용은 `ProblemDetail` → MessageConverter → JSON (상태가 ProblemDetail 안에 있어 `@ResponseStatus` 불필요)
 - **(2026-11-27) trace가 뭐야?** → 스택 트레이스. 예외가 터진 곳(맨 위 `at`)부터 그곳을 부른 메서드들(아래로 갈수록 바깥 호출)을 차례로 적은 호출 스택 기록. STS 콘솔의 빨간 `at ...` 줄들이 바로 이것. 개발자에겐 버그 위치를 알려 주는 지도(로그에 남김), 외부엔 서버 내부 설계도(응답에 노출 금지)
 - **(2026-11-25) 처음엔 내 Controller가 불리고, 예외를 던지면 ErrorController가 잡아서 에러 페이지로 가나?** → 반은 맞음. ① ErrorController는 예외를 '잡는' 게 아니다: 아무도 안 잡은 예외가 Tomcat까지 올라가면 Tomcat이 `/error`로 **두 번째 요청(내부 forward)**을 보낸다 → 그 요청을 받는 평범한 Controller가 BasicErrorController. 예외 정보는 request 속성으로 전달. ② 내 Controller가 **아예 안 불리는** 경우도 있다: `/nope`(404)·405는 Controller 선택 전 실패, `/review/abc`(400)는 선택은 됐지만 파라미터 변환에서 실패해 메서드 본문이 실행 안 됨 → 이 경우는 예외가 아니라 Spring이 `sendError(상태 코드)`
 - **(2026-11-25) EL은 어떻게 쓰나?** → `${이름}`. 4개 scope(page→request→session→application)를 차례로 찾아 처음 나온 값을 출력, 없으면 빈 문자열(에러 X). Controller의 `Model`·BasicErrorController의 `ModelAndView` 값은 결국 **request 속성**이 된다 → 같은 `${이름}`으로 꺼냄. 이미 `500.jsp`의 `${msg}`, `${root}`가 EL
@@ -1115,7 +1136,7 @@ M2 완료 ✅ (2026-11-17) → **M3 챕터로 이동**. M3 시작 전 확인할 
 - [ ] 8-3 `MvcExceptionHandler` → MVC ①③ 🟢 ✅ (2026-11-27). 8-3-4 실험 끝(200 확인 → `@ResponseStatus` 복구). 미룸: 39행 로그 문구 `"충돌"` → 403에 맞게, 브라우저 확인, `/review/abc` 생각해 보기(`Exception` 전체를 잡게 된 뒤 몇 번?)
 - [x] 8-4 `RecordNotFoundException` + 404 + 테스트 ⑤ — 8-4-1~8-4-4 ✅ (2026-11-27). 8-4-5·8-4-6 ✅ → **8-4 완료** (2026-11-27)
 - [x] 8-5 `ReviewController` catch 정리 판단 기록 → MVC ④ 🟢 (2026-11-27). 미룸: 브라우저로 남의 리뷰 수정 주소 → 403 확인
-- [ ] 8-6 `RestExceptionHandler` → REST ②⑤⑥⑦ 🟢
+- [x] 8-6 `RestExceptionHandler` → REST ②⑤⑥⑦ 🟢 (2026-11-27). 선택 과제(8-6-6 `code` 필드, 깨진 JSON → 400)는 건너뜀
 - [ ] 8-7 전/후 비교, 셀프 체크 14문제
 
 ### 📌 다음 세션 시작점

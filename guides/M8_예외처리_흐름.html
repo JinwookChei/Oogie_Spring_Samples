@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>맛집 노트 예외 처리 흐름</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* 레이아웃: 위 = 시나리오 선택, 왼쪽 = 구성 요소 지도(SVG, 예외가 이동), 오른쪽 = 단계 설명 + 단계 목록, 아래 = 핸들러 요약 */
+:root {
+  --bg: #f4f6f4;
+  --surface: #ffffff;
+  --ink: #1b2320;
+  --muted: #5a6661;
+  --line: #d3dbd7;
+  --req: #2c6e5c;      /* 요청이 들어가는 길 */
+  --err: #c0470f;      /* 예외가 거슬러 올라오는 길 */
+  --res: #2b5ea8;      /* 응답이 만들어져 나가는 길 */
+  --req-soft: #e3efea;
+  --err-soft: #fbe9df;
+  --res-soft: #e3ebf7;
+  --code-bg: #eef2f0;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, "D2Coding", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111614; --surface: #192120; --ink: #e4ebe8; --muted: #98a59f; --line: #2d3734;
+    --req: #6cc4a9; --err: #f2925a; --res: #82aef0;
+    --req-soft: #1d322b; --err-soft: #3a2519; --res-soft: #1d2a3e; --code-bg: #212b29;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.65 var(--font-body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+h1 { font-size: 1.7rem; line-height: 1.25; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.1rem; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+code, .mono { font-family: var(--font-mono); font-size: .86em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.lede { color: var(--muted); max-width: 70ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .85rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 22px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* 시나리오 선택 */
+.picker { display: grid; gap: 10px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { font: 500 .92rem var(--font-body); padding: 7px 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: flex; align-items: center; gap: 10px; text-align: left; font: .9rem var(--font-body); padding: 8px 12px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; cursor: pointer; }
+.chip .req { display: block; font-family: var(--font-mono); font-size: .76rem; color: var(--muted); }
+.chip[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.badge { font: 500 .78rem var(--font-mono); padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+.b4 { background: var(--err-soft); color: var(--err); }
+.b5 { background: var(--err); color: var(--surface); }
+.b3 { background: var(--req-soft); color: var(--req); }
+.note-draft { font-size: .84rem; color: var(--muted); }
+
+/* 본문 2단 */
+.main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 920px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+.diagram-box { overflow-x: auto; }
+svg { display: block; width: 100%; min-width: 520px; height: auto; }
+.node rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.5; transition: stroke .2s, fill .2s; }
+.node .t { font: 600 12.5px var(--font-body); fill: var(--ink); }
+.node .s { font: 10.5px var(--font-body); fill: var(--muted); }
+.node.dim { opacity: .28; }
+.node.seen rect { stroke: var(--muted); }
+.node.on rect { stroke-width: 2.6; }
+.node.on.p-req rect { stroke: var(--req); fill: var(--req-soft); }
+.node.on.p-err rect { stroke: var(--err); fill: var(--err-soft); }
+.node.on.p-res rect { stroke: var(--res); fill: var(--res-soft); }
+.zone { font: 500 10px var(--font-body); fill: var(--muted); letter-spacing: .06em; }
+.trail line { stroke-width: 2.4; fill: none; }
+.trail .req { stroke: var(--req); }
+.trail .err { stroke: var(--err); }
+.trail .res { stroke: var(--res); }
+.mk-req { fill: var(--req); } .mk-err { fill: var(--err); } .mk-res { fill: var(--res); }
+#dot circle { stroke: var(--surface); stroke-width: 2; }
+#dot.req circle { fill: var(--req); } #dot.err circle { fill: var(--err); } #dot.res circle { fill: var(--res); }
+#dot text { font: 600 9px var(--font-mono); fill: var(--ink); }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.btn { font: 500 .9rem var(--font-body); padding: 7px 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.btn:disabled { opacity: .4; cursor: default; }
+.counter { margin-left: auto; font: .85rem var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+button:focus-visible { outline: 2px solid var(--res); outline-offset: 2px; }
+
+/* 단계 설명 */
+.step-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.phase { font: 500 .75rem var(--font-body); letter-spacing: .05em; padding: 2px 8px; border-radius: 6px; }
+.phase.req { background: var(--req-soft); color: var(--req); }
+.phase.err { background: var(--err-soft); color: var(--err); }
+.phase.res { background: var(--res-soft); color: var(--res); }
+.where { font: .8rem var(--font-mono); color: var(--muted); }
+#stepTitle { font-size: 1.15rem; margin-top: 8px; }
+#stepBody { margin-top: 8px; }
+.state { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.state div { border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+.state dt { font-size: .72rem; color: var(--muted); letter-spacing: .04em; }
+.state dd { margin: 2px 0 0; font: .84rem var(--font-mono); overflow-wrap: anywhere; }
+.state .empty { color: var(--muted); }
+pre.resp { margin: 12px 0 0; padding: 10px 12px; background: var(--code-bg); border-radius: 8px; font: .8rem/1.55 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.steps { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 2px; counter-reset: s; }
+.steps button { width: 100%; text-align: left; display: flex; gap: 10px; align-items: baseline; font: .88rem var(--font-body); padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.steps button .n { font: .78rem var(--font-mono); min-width: 1.6em; font-variant-numeric: tabular-nums; }
+.steps button.done { color: var(--ink); }
+.steps button.cur { background: var(--code-bg); color: var(--ink); font-weight: 600; }
+.steps i { width: 8px; height: 8px; border-radius: 50%; flex: none; align-self: center; }
+.steps i.req { background: var(--req); } .steps i.err { background: var(--err); } .steps i.res { background: var(--res); }
+
+/* 요약표 */
+.tables { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 920px) { .tables { grid-template-columns: minmax(0, 1fr); } }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .86rem; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: .78rem; letter-spacing: .03em; }
+.compare { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 920px) { .compare { grid-template-columns: minmax(0, 1fr); } }
+.q { border-left: 3px solid var(--res); padding: 4px 0 4px 12px; min-width: 0; }
+.q b { display: block; margin-bottom: 4px; }
+.foot { font-size: .82rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header style="display:grid; gap:10px">
+    <h1>맛집 노트 예외 처리 흐름</h1>
+    <p class="lede">Service에서 던진 예외가 어떤 길을 거쳐 화면(JSP)이나 JSON 응답이 되는지 한 단계씩 따라갑니다. 시나리오를 고르고 <b>다음</b>을 누르세요. 키보드 ← → 로도 움직일 수 있습니다.</p>
+    <div class="legend">
+      <span><i style="background:var(--req)"></i>요청이 들어가는 길</span>
+      <span><i style="background:var(--err)"></i>예외가 거슬러 올라오는 길</span>
+      <span><i style="background:var(--res)"></i>응답이 만들어져 나가는 길</span>
+    </div>
+  </header>
+
+  <section class="picker" aria-label="시나리오 선택">
+    <div class="tabs" role="tablist" id="tabs"></div>
+    <div class="chips" id="chips"></div>
+    <p class="note-draft" id="groupNote"></p>
+  </section>
+
+  <section class="main">
+    <div class="panel">
+      <div class="diagram-box">
+        <svg id="map" viewBox="0 0 680 430" role="img" aria-label="Spring MVC 구성 요소와 예외 이동 경로">
+          <defs>
+            <marker id="m-req" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-req" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="m-err" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-err" d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="m-res" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-res" d="M0,0 L10,5 L0,10 z"/></marker>
+          </defs>
+          <text class="zone" x="175" y="22">SPRING 밖 (Tomcat의 /error 재요청)</text>
+          <text class="zone" x="175" y="152">요청 처리</text>
+          <text class="zone" x="175" y="282">예외 처리 · 응답 만들기</text>
+          <line x1="10" y1="135" x2="670" y2="135" stroke="var(--line)" stroke-dasharray="3 5"/>
+          <g class="trail" id="trail"></g>
+          <g id="nodes"></g>
+          <g id="dot" class="req"><circle r="8" cx="0" cy="0"/></g>
+        </svg>
+      </div>
+      <div class="controls">
+        <button class="btn" id="reset">처음부터</button>
+        <button class="btn" id="prev">◀ 이전</button>
+        <button class="btn primary" id="next">다음 ▶</button>
+        <button class="btn" id="play" aria-pressed="false">자동 재생</button>
+        <span class="counter" id="counter"></span>
+      </div>
+    </div>
+
+    <div class="panel" aria-live="polite">
+      <div class="step-head">
+        <span class="phase" id="phase"></span>
+        <span class="where" id="where"></span>
+      </div>
+      <h2 id="stepTitle"></h2>
+      <p id="stepBody"></p>
+      <dl class="state">
+        <div><dt>들고 가는 예외</dt><dd id="sEx"></dd></div>
+        <div><dt>맡은 곳</dt><dd id="sHandler"></dd></div>
+        <div><dt>응답 상태</dt><dd id="sStatus"></dd></div>
+        <div><dt>응답 본문</dt><dd id="sResp"></dd></div>
+      </dl>
+      <pre class="resp" id="respBox" hidden></pre>
+      <ol class="steps" id="steps"></ol>
+    </div>
+  </section>
+
+  <section class="panel" style="display:grid; gap:14px">
+    <h2>핸들러 한눈에 보기</h2>
+    <div class="tables">
+      <div class="tbl">
+        <table>
+          <caption style="text-align:left; padding-bottom:6px"><b>MvcExceptionHandler</b> · 화면용 · <code>@ControllerAdvice(basePackages = "...controller")</code></caption>
+          <thead><tr><th>메서드</th><th>잡는 예외</th><th>상태</th><th>응답</th><th>로그</th></tr></thead>
+          <tbody>
+            <tr><td><code>handleForbidden</code></td><td>ForbiddenException</td><td>403</td><td>error/403.jsp + 예외 메시지</td><td>warn</td></tr>
+            <tr><td><code>handleNotFound</code></td><td>RecordNotFoundException</td><td>404</td><td>error/404.jsp + 예외 메시지</td><td>warn</td></tr>
+            <tr><td><code>handleException</code></td><td>Exception (나머지 전부)</td><td>500</td><td>error/500.jsp + 고정 문구</td><td>error + 스택 트레이스</td></tr>
+          </tbody>
+        </table>
+        <p class="foot" style="margin-top:6px">상태는 <code>@ResponseStatus</code>로 정한다. <code>ModelAndView</code>는 상태 코드를 모르기 때문이다.</p>
+      </div>
+      <div class="tbl">
+        <table>
+          <caption style="text-align:left; padding-bottom:6px"><b>RestExceptionHandler</b> · API용 · <code>@RestControllerAdvice</code> + <code>@Order</code> <span class="foot">(8-6 작성 중)</span></caption>
+          <thead><tr><th>메서드</th><th>잡는 예외</th><th>상태</th><th>응답</th><th>로그</th></tr></thead>
+          <tbody>
+            <tr><td><code>handleRecordNotFoundException</code></td><td>RecordNotFoundException</td><td>404</td><td>ProblemDetail, detail = 예외 메시지</td><td>warn</td></tr>
+            <tr><td><code>handleForbidden…</code></td><td>ForbiddenException</td><td>403</td><td>ProblemDetail, detail = 예외 메시지</td><td>warn</td></tr>
+            <tr><td><code>handleException</code></td><td>Exception (나머지 전부)</td><td>500</td><td>ProblemDetail, detail = 고정 문구</td><td>error + 스택 트레이스</td></tr>
+            <tr><td>8-6-4</td><td>(테스트 ⑥에서 직접 찾기)</td><td>415</td><td>ProblemDetail</td><td></td></tr>
+          </tbody>
+        </table>
+        <p class="foot" style="margin-top:6px">상태는 <code>ProblemDetail</code> 안에 들어 있어서 <code>@ResponseStatus</code>가 필요 없다.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" style="display:grid; gap:14px">
+    <h2>지도에서 직접 확인할 것</h2>
+    <div class="compare">
+      <div class="q"><b>어느 Advice가 맡나?</b>Controller가 있는 <b>패키지</b>로 정해진다. <code>basePackages</code>와 <code>basePackageClasses</code>가 그 범위다. 두 Advice의 범위가 겹칠 때만 <code>@Order</code>가 승부를 낸다.</div>
+      <div class="q"><b>Advice 안에서 어느 메서드?</b>던져진 예외와 <b>상속 단계가 가장 가까운</b> 타입의 메서드. 적힌 순서는 상관없다. <code>Exception</code>은 맞는 게 없을 때만 받는 최후의 보루다.</div>
+      <div class="q"><b>Advice가 처리하면?</b>예외는 거기서 "처리됨"이 되고, 응답은 정상 응답처럼 만들어진다. 그래서 Tomcat의 <code>/error</code>(BasicErrorController)까지 가지 않는다.</div>
+    </div>
+    <div class="compare">
+      <div class="q"><b>생각해 보기 ① (8-3에서 미룬 질문)</b><code>/review/abc</code>는 숫자 자리에 글자가 와서 파라미터 변환에서 실패한다. 이 예외는 지도의 어느 단계에서 생길까? 지금은 <code>MvcExceptionHandler</code>에 <code>Exception</code> 핸들러가 있다. 그럼 상태 코드는 몇 번일까?</div>
+      <div class="q"><b>생각해 보기 ② (8-6-4)</b>JSON이 아니라 form 형식으로 <code>POST /api/review</code>를 보내면 Controller 메서드가 불리기도 <b>전에</b> Spring이 예외를 던진다. <code>handleException(Exception)</code>이 있으면 그 예외는 어디로 갈까? 테스트 ⑥의 <code>Resolved Exception</code> 줄에서 확인해 보자.</div>
+      <div class="q"><b>생각해 보기 ③ (M9 예고)</b>Interceptor의 <code>afterCompletion(..., ex)</code>는 요청이 끝날 때 불린다. Advice가 이미 처리한 예외라면 <code>ex</code>에는 무엇이 들어 있을까?</div>
+    </div>
+  </section>
+
+  <p class="foot">2026-11-27 MatzipNote 코드 기준. REST 시나리오는 8-6을 마친 뒤의 목표 흐름이다. 지금 실제 API 동작은 "비교: Advice가 없을 때" 시나리오와 같다.</p>
+</div>
+
+<script>
+(function () {
+  var NODES = {
+    client:   { x: 80,  y: 200, t: '브라우저 · curl',        s: '클라이언트' },
+    ds:       { x: 250, y: 200, t: 'DispatcherServlet',     s: '요청을 나눠 주는 곳' },
+    ctrl:     { x: 420, y: 200, t: 'Controller',            s: 'ReviewController' },
+    svc:      { x: 590, y: 200, t: 'Service',               s: 'ReviewServiceImpl' },
+    resolver: { x: 250, y: 335, t: 'ExceptionResolver',     s: '담당 핸들러 찾기' },
+    mvc:      { x: 420, y: 305, t: 'MvcExceptionHandler',   s: '@ControllerAdvice · 화면' },
+    rest:     { x: 420, y: 385, t: 'RestExceptionHandler',  s: '@RestControllerAdvice · API' },
+    view:     { x: 80,  y: 305, t: 'ViewResolver',          s: 'View 이름 → JSP' },
+    json:     { x: 80,  y: 385, t: 'MessageConverter',      s: '객체 → JSON' },
+    tomcat:   { x: 250, y: 70,  t: 'Tomcat',                s: '/error로 다시 요청' },
+    basic:    { x: 420, y: 70,  t: 'BasicErrorController',  s: 'Boot 기본 에러 처리' }
+  };
+  var HW = 75, HH = 25;
+
+  var GROUPS = [
+    { id: 'mvc',  name: '화면 (MvcExceptionHandler)', note: 'controller 패키지의 Controller에서 난 예외. 지금 코드에서 그대로 동작한다.' },
+    { id: 'rest', name: 'API (RestExceptionHandler)', note: 'restcontroller 패키지에서 난 예외. 8-6을 마친 뒤의 목표 흐름이다 (지금 작성 중).' },
+    { id: 'cmp',  name: '비교: Advice가 없을 때',     note: '8-1·8-2에서 관찰한 길. RestExceptionHandler가 비어 있는 지금의 API가 실제로 이 길을 탄다.' }
+  ];
+
+  var S = [
+    { id: 'mvc403', g: 'mvc', name: '남의 리뷰 삭제', req: 'POST /review/1/delete', badge: '403', labels: {}, steps: [
+      { n: 'client', p: 'req', t: '브라우저가 삭제 요청을 보낸다', b: 'mno=2로 로그인한 사용자가 1번 리뷰(다른 사람의 글)에서 삭제 버튼을 누른다.' },
+      { n: 'ds', p: 'req', t: 'DispatcherServlet이 담당 Controller를 고른다', b: 'URL과 HTTP 메서드로 <code>ReviewController.deleteReview()</code>를 찾는다. 그 전에 <code>LoginCheckInterceptor.preHandle()</code>이 세션의 <code>loginUser</code>를 확인하고 통과시킨다.' },
+      { n: 'ctrl', p: 'req', t: 'Controller가 Service를 부른다', b: '<code>reviewService.deleteReview(1, 2)</code>를 호출한다. 8-5에서 try-catch를 지웠기 때문에 이 호출을 감싼 catch가 없다.', w: 'ReviewController.deleteReview()' },
+      { n: 'svc', p: 'err', t: 'Service가 예외를 던진다', b: '<code>checkReviewMno()</code>가 글쓴이(mno 1)와 로그인 사용자(mno 2)를 비교한다. 다르므로 <code>throw new ForbiddenException("작성자가 아니어서 접근 할 수 없습니다.")</code>를 실행한다. 이 줄 아래는 실행되지 않는다.', w: 'ReviewServiceImpl.checkReviewMno()', st: { ex: 'ForbiddenException' } },
+      { n: 'ctrl', p: 'err', t: 'Controller를 그대로 빠져나간다', b: '잡는 catch가 없으니 예외가 <code>deleteReview()</code> 밖으로 나간다. "삭제 완료" flash와 redirect 줄은 실행되지 않는다.' },
+      { n: 'ds', p: 'err', t: 'DispatcherServlet이 예외를 받는다', b: 'Controller 호출을 감싼 <code>doDispatch()</code>의 catch가 예외를 받는다. 응답을 만들기 전에 <code>processHandlerException()</code>으로 예외 처리 담당(HandlerExceptionResolver)에게 넘긴다.', w: 'DispatcherServlet.doDispatch()' },
+      { n: 'resolver', p: 'err', t: '처리할 Advice를 찾는다', b: '<code>ExceptionHandlerExceptionResolver</code>가 차례로 찾는다. ① 예외가 난 Controller(<code>ReviewController</code>) 안의 <code>@ExceptionHandler</code>: 없음. ② Advice 빈들을 <code>@Order</code> 순서로 보면서 <b>담당 범위</b>를 검사한다. <code>RestExceptionHandler</code>는 restcontroller 담당이라 건너뛴다. <code>MvcExceptionHandler</code>(basePackages = controller)가 해당된다.' },
+      { n: 'mvc', p: 'err', t: '가장 가까운 메서드를 고른다', b: 'ForbiddenException을 받을 수 있는 메서드는 둘이다. <code>handleForbidden</code>(ForbiddenException, 0단계)과 <code>handleException</code>(Exception, 2단계). 상속 단계가 가장 적은 <code>handleForbidden</code>이 선택된다. 메서드를 적은 순서는 상관없다.', st: { handler: 'MvcExceptionHandler.handleForbidden' } },
+      { n: 'mvc', p: 'res', t: 'handleForbidden이 응답 재료를 만든다', b: '<code>log.warn(...)</code>으로 기록한다. <code>@ResponseStatus(HttpStatus.FORBIDDEN)</code>로 상태를 403으로 정하고, <code>ModelAndView("error/403")</code>에 <code>msg</code>를 담아 돌려준다. 이 메시지는 우리가 쓴 사용자용 문장이라 보여 줘도 된다.', st: { status: '403 Forbidden' } },
+      { n: 'ds', p: 'res', t: '정상 응답처럼 이어 간다', b: '예외는 여기서 "처리됨"이 된다. DispatcherServlet은 받은 ModelAndView로 화면을 그린다. 그래서 Tomcat과 BasicErrorController(<code>/error</code>)까지 가지 않는다.' },
+      { n: 'view', p: 'res', t: 'View 이름이 JSP가 된다', b: '<code>error/403</code>에 prefix·suffix가 붙어 <code>/WEB-INF/views/error/403.jsp</code>가 된다. JSP의 <code>${msg}</code>에 메시지가 찍힌다.', w: 'views/error/403.jsp', st: { resp: 'HTML (403.jsp)' } },
+      { n: 'client', p: 'res', t: '브라우저가 403 화면을 받는다', b: '상태 <b>403</b>과 403.jsp HTML이 함께 온다. <code>@ResponseStatus</code>를 빼면 같은 화면이 <b>200</b>으로 나간다 (8-3-4 실험).' }
+    ]},
+    { id: 'mvc404', g: 'mvc', name: '없는 리뷰 상세', req: 'GET /review/9999', badge: '404', labels: {}, steps: [
+      { n: 'client', p: 'req', t: '없는 리뷰 주소를 연다', b: '상세 보기는 로그인 검사 대상이 아니라서 Interceptor가 막지 않는다.' },
+      { n: 'ds', p: 'req', t: 'selectDetail()을 고른다', b: '<code>@GetMapping("/{rno}")</code>가 맞고, <code>@PathVariable int rno</code>에 9999가 들어간다.' },
+      { n: 'ctrl', p: 'req', t: 'Service를 부른다', b: '<code>reviewService.selectDetail(9999)</code>. 8-5에서 IllegalArgumentException catch를 지웠다.', w: 'ReviewController.selectDetail()' },
+      { n: 'svc', p: 'err', t: 'DAO 결과가 null이라 예외를 던진다', b: '<code>reviewDao.selectDetail(9999)</code>가 null을 돌려준다. <code>throw new RecordNotFoundException("찾을 수 없는 리뷰 입니다.")</code>.', w: 'ReviewServiceImpl.selectDetail()', st: { ex: 'RecordNotFoundException' } },
+      { n: 'ctrl', p: 'err', t: 'catch 없이 빠져나간다', b: 'RecordNotFoundException은 <code>RuntimeException</code>의 자식이다. 예전의 <code>catch (IllegalArgumentException e)</code>가 남아 있었더라도 형제 관계라 잡히지 않는다 (8-4 개념 질문).' },
+      { n: 'ds', p: 'err', t: '예외 처리 담당에게 넘긴다', b: '403 때와 같다. <code>processHandlerException()</code>.' },
+      { n: 'resolver', p: 'err', t: '범위 검사: MvcExceptionHandler', b: '예외가 난 <code>ReviewController</code>는 controller 패키지에 있다. 그래서 MvcExceptionHandler가 맡는다.' },
+      { n: 'mvc', p: 'res', t: 'handleNotFound가 실행된다', b: 'RecordNotFoundException(0단계)이 Exception(2단계)보다 가깝다. warn 로그를 남기고, 상태 404, <code>ModelAndView("error/404")</code>에 msg를 담는다.', st: { handler: 'MvcExceptionHandler.handleNotFound', status: '404 Not Found' } },
+      { n: 'ds', p: 'res', t: 'ModelAndView로 렌더링', b: '정상 응답처럼 화면을 그린다.' },
+      { n: 'view', p: 'res', t: '404.jsp가 두 갈래 중 하나를 고른다', b: '<code>&lt;c:when test="${msg != null}"&gt;</code>: msg가 있으니 "찾을 수 없는 리뷰 입니다."를 출력한다. <code>/nope</code>처럼 BasicErrorController가 보낸 404라면 msg가 없어서 path 문장이 나온다 (8-4-6).', w: 'views/error/404.jsp', st: { resp: 'HTML (404.jsp, msg 표시)' } },
+      { n: 'client', p: 'res', t: '404와 안내 문장을 받는다', b: '예전(8-1)에는 상세 화면에 에러 문구가 뜨고 상태는 200이었다. 이제는 정확한 <b>404</b>가 나간다.' }
+    ]},
+    { id: 'mvc500', g: 'mvc', name: 'DB 오류 (예상 못 한 예외)', req: 'GET /review/list', badge: '500', labels: {}, steps: [
+      { n: 'client', p: 'req', t: '목록을 연다', b: '이때 DB에 문제가 있다고 가정한다. 테스트 ③과 같은 상황으로, 테이블이 없다.' },
+      { n: 'ds', p: 'req', t: 'searchReview()를 고른다', b: '<code>@GetMapping("/list")</code>. 검색 조건은 <code>@ModelAttribute ReviewSearch</code>로 바인딩된다.' },
+      { n: 'ctrl', p: 'req', t: 'Service를 부른다', b: '<code>reviewService.searchReview(reviewSearch)</code>.', w: 'ReviewController.searchReview()' },
+      { n: 'svc', p: 'err', t: 'SQL을 실행하다 실패한다', b: 'MyBatis가 SQL을 실행하다 실패한다. 실제로는 Spring이 <code>BadSqlGrammarException</code> 같은 예외로 감싸서 던지고, 그 메시지에 <b>SQL 문장과 테이블 이름</b>이 들어 있다. 테스트 ③은 <code>RuntimeException("SQLSyntaxErrorException: Table \'matzip.review\' doesn\'t exist")</code>로 이 상황을 흉내 낸다.', st: { ex: 'RuntimeException (SQL 오류)' } },
+      { n: 'ctrl', p: 'err', t: 'Controller를 빠져나간다', b: '목록 메서드에는 처음부터 catch가 없다.' },
+      { n: 'ds', p: 'err', t: '예외 처리 담당에게 넘긴다', b: '<code>processHandlerException()</code>.' },
+      { n: 'resolver', p: 'err', t: '범위 검사: MvcExceptionHandler', b: 'ReviewController → controller 패키지 → MvcExceptionHandler.' },
+      { n: 'mvc', p: 'err', t: '맞는 메서드가 하나뿐이다', b: 'ForbiddenException도, RecordNotFoundException도 아니다. <code>Exception</code> 타입만 맞으므로 최후의 보루인 <code>handleException</code>이 실행된다.', st: { handler: 'MvcExceptionHandler.handleException' } },
+      { n: 'mvc', p: 'res', t: '정보를 보낼 곳을 나눈다', b: '<b>개발자용:</b> <code>log.error("예상하지 못한 오류: {}", e.getMessage(), e)</code>. 마지막 인자 <code>e</code> 덕분에 콘솔에 스택 트레이스 전체가 남는다. <b>사용자용:</b> msg에는 고정 문구 "일시적인 오류가 발생했습니다…"만 담는다. SQL 정보는 로그에만 남는다.', st: { status: '500 Internal Server Error' } },
+      { n: 'ds', p: 'res', t: 'ModelAndView로 렌더링', b: '여기서도 Tomcat의 /error까지 가지 않는다.' },
+      { n: 'view', p: 'res', t: 'error/500 → 500.jsp', b: '<code>${msg}</code>에 고정 문구가 찍힌다.', w: 'views/error/500.jsp', st: { resp: 'HTML (500.jsp, 고정 문구)' } },
+      { n: 'client', p: 'res', t: '500과 고정 문구를 받는다', b: 'SQL 문장, 테이블 이름, 패키지 구조는 화면 어디에도 없다. 오늘 curl 실험에서 본 <code>message</code>·<code>trace</code> 노출과 비교해 보자.' }
+    ]},
+    { id: 'mvcCatch', g: 'mvc', name: '이미지가 아닌 파일 (Controller가 처리)', req: 'POST /review/write', badge: '302', labels: { svc: 'ReviewServiceImpl → LocalImageStorage' }, steps: [
+      { n: 'client', p: 'req', t: '이미지가 아닌 파일로 글을 쓴다', b: '작성 폼에서 memo.txt를 첨부해 보낸다.' },
+      { n: 'ds', p: 'req', t: 'Interceptor 통과 → writeReview()', b: 'LoginCheckInterceptor가 로그인을 확인한다. 폼 값은 <code>Review</code>로, 파일은 <code>MultipartFile image</code>로 바인딩된다.' },
+      { n: 'ctrl', p: 'req', t: 'try 안에서 Service를 부른다', b: '<code>reviewService.writeReview(review, image)</code>. 이 메서드에는 8-5에서 남긴 catch가 하나 있다.', w: 'ReviewController.writeReview()' },
+      { n: 'svc', p: 'err', t: '이미지 검사에서 실패한다', b: '사진 저장을 맡은 <code>LocalImageStorage</code>가 확장자를 보고 <code>InvalidImageException("이미지 파일(png, jpg, jpeg, gif)만 업로드할 수 있습니다.")</code>을 던진다.', w: 'LocalImageStorage', st: { ex: 'InvalidImageException' } },
+      { n: 'ctrl', p: 'res', t: 'Controller가 직접 잡는다', b: '<code>catch (InvalidImageException e)</code>가 잡는다. 사용자가 다른 파일을 골라 다시 보내면 되는 <b>입력 오류</b>라서 Controller에 남긴 catch다. flash에 msg를 담고 <code>"redirect:/review/write"</code>를 반환한다.', st: { handler: 'ReviewController의 catch', status: '302 Found' } },
+      { n: 'ds', p: 'res', t: '예외가 아니라 정상 반환이다', b: 'Controller가 문자열을 정상적으로 반환했다. 그래서 DispatcherServlet은 예외를 보지 못하고, ExceptionResolver와 Advice는 등장하지 않는다. 지도에서 아래쪽 줄이 비어 있는 것을 보자.', st: { resp: 'redirect:/review/write' } },
+      { n: 'client', p: 'res', t: '작성 폼이 다시 열린다', b: '브라우저는 302를 받고 <code>/review/write</code>로 다시 GET을 보낸다. 작성 폼 위에 flash msg가 한 번 보인다. 이 catch를 지우면 <code>handleException</code>이 잡아 500과 "일시적인 오류"가 된다 (8-5 리뷰).' }
+    ]},
+    { id: 'rest404', g: 'rest', name: '없는 리뷰 조회', req: 'GET /api/review/9999', badge: '404', labels: { ctrl: 'ReviewRestController' }, steps: [
+      { n: 'client', p: 'req', t: 'API를 부른다', b: 'curl이나 프런트엔드 코드가 <code>GET /api/review/9999</code>를 보낸다.' },
+      { n: 'ds', p: 'req', t: 'ReviewRestController.detail()을 고른다', b: '<code>@RequestMapping("/api/review")</code> + <code>@GetMapping("/{rno}")</code>.' },
+      { n: 'ctrl', p: 'req', t: 'Service를 부른다', b: '<code>reviewService.selectDetail(9999)</code>. 화면용과 <b>같은 Service</b>를 쓴다.', w: 'ReviewRestController.detail()' },
+      { n: 'svc', p: 'err', t: '같은 예외를 던진다', b: 'Service는 누가 불렀는지(화면인지 API인지) 모른다. 똑같이 <code>RecordNotFoundException</code>을 던진다. 어떤 모양으로 응답할지는 Advice가 정한다.', st: { ex: 'RecordNotFoundException' } },
+      { n: 'ctrl', p: 'err', t: 'Controller를 빠져나간다', b: 'REST Controller에도 catch가 없다.' },
+      { n: 'ds', p: 'err', t: '예외 처리 담당에게 넘긴다', b: '여기까지는 화면용과 완전히 같다.' },
+      { n: 'resolver', p: 'err', t: '이번에는 RestExceptionHandler', b: 'Advice 빈들을 <code>@Order</code> 순서로 본다. <code>RestExceptionHandler</code>는 <code>@Order(Ordered.HIGHEST_PRECEDENCE)</code>라 맨 앞이다. <code>basePackageClasses = ReviewRestController.class</code>이므로 restcontroller 패키지를 담당하고, 범위에 해당된다. MvcExceptionHandler는 controller 패키지 담당이라 어차피 범위 밖이다.' },
+      { n: 'rest', p: 'res', t: 'handleRecordNotFoundException이 실행된다', b: 'warn 로그를 남기고 <code>ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage())</code>를 반환한다. 상태 코드가 ProblemDetail <b>안에</b> 들어 있다.', st: { handler: 'RestExceptionHandler.handleRecordNotFoundException', status: '404 Not Found' } },
+      { n: 'json', p: 'res', t: 'JSON으로 바로 쓴다', b: '<code>@RestControllerAdvice</code>는 <code>@ControllerAdvice</code> + <code>@ResponseBody</code>다. 반환값이 View 이름이 아니라 응답 <b>본문</b>이 된다. Spring은 ProblemDetail의 status를 읽어 HTTP 상태를 404로 맞추고, <code>Content-Type: application/problem+json</code>으로 쓴다. 그래서 <code>@ResponseStatus</code>가 필요 없다. ViewResolver는 쓰이지 않는다.', st: { resp: 'application/problem+json' } },
+      { n: 'client', p: 'res', t: '404 ProblemDetail을 받는다', b: '테스트 ②가 이 응답의 상태, Content-Type, <code>$.status</code>, <code>$.detail</code>을 검사한다.', json: '{\n  "type": "about:blank",\n  "title": "Not Found",\n  "status": 404,\n  "detail": "찾을 수 없는 리뷰 입니다.",\n  "instance": "/api/review/9999"\n}' }
+    ]},
+    { id: 'rest403', g: 'rest', name: '권한 없음 (테스트 ⑦)', req: 'GET /api/review/1 (가정)', badge: '403', labels: { ctrl: 'ReviewRestController' }, steps: [
+      { n: 'client', p: 'req', t: '테스트 ⑦의 상황', b: '지금 API에는 수정·삭제가 없다. 테스트 ⑦처럼 가짜 Service가 상세 조회에서 ForbiddenException을 던진다고 가정한다. M10에서 PUT·DELETE를 만들면 실제로 이 길을 탄다.' },
+      { n: 'ds', p: 'req', t: 'detail()을 고른다', b: '<code>GET /api/review/1</code>.' },
+      { n: 'ctrl', p: 'req', t: 'Service를 부른다', b: '<code>reviewService.selectDetail(1)</code>.' },
+      { n: 'svc', p: 'err', t: 'ForbiddenException', b: '"작성자가 아니어서 접근 할 수 없습니다."', st: { ex: 'ForbiddenException' } },
+      { n: 'ctrl', p: 'err', t: 'Controller를 빠져나간다', b: 'catch 없음.' },
+      { n: 'ds', p: 'err', t: '예외 처리 담당에게 넘긴다', b: '<code>processHandlerException()</code>.' },
+      { n: 'resolver', p: 'err', t: '범위 검사: RestExceptionHandler', b: 'ReviewRestController는 restcontroller 패키지에 있다.' },
+      { n: 'rest', p: 'res', t: 'ForbiddenException 담당 메서드', b: '0단계로 가장 가까운 ForbiddenException 메서드가 선택된다. warn 로그를 남기고 <code>forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage())</code>.', st: { handler: 'RestExceptionHandler (403 메서드)', status: '403 Forbidden' } },
+      { n: 'json', p: 'res', t: 'JSON으로 쓴다', b: 'ProblemDetail의 status 403이 HTTP 상태가 된다.', st: { resp: 'application/problem+json' } },
+      { n: 'client', p: 'res', t: '403 ProblemDetail', b: '테스트 ⑦은 테스트 ②를 본떠서, 상태와 <code>$.status</code>를 403으로 검사하면 된다.', json: '{\n  "type": "about:blank",\n  "title": "Forbidden",\n  "status": 403,\n  "detail": "작성자가 아니어서 접근 할 수 없습니다.",\n  "instance": "/api/review/1"\n}' }
+    ]},
+    { id: 'rest500', g: 'rest', name: 'DB 오류 (테스트 ⑤)', req: 'GET /api/review/1', badge: '500', labels: { ctrl: 'ReviewRestController' }, steps: [
+      { n: 'client', p: 'req', t: 'API를 부른다', b: '이때 DB에 문제가 있다고 가정한다 (테스트 ⑤).' },
+      { n: 'ds', p: 'req', t: 'detail()을 고른다', b: '' },
+      { n: 'ctrl', p: 'req', t: 'Service를 부른다', b: '' },
+      { n: 'svc', p: 'err', t: 'SQL 오류 예외', b: '메시지에 "SQLSyntaxErrorException: Table \'matzip.review\' doesn\'t exist"가 들어 있다.', st: { ex: 'RuntimeException (SQL 오류)' } },
+      { n: 'ctrl', p: 'err', t: 'Controller를 빠져나간다', b: '' },
+      { n: 'ds', p: 'err', t: '예외 처리 담당에게 넘긴다', b: '' },
+      { n: 'resolver', p: 'err', t: '범위 검사: RestExceptionHandler', b: '' },
+      { n: 'rest', p: 'err', t: '최후의 보루 handleException', b: 'ForbiddenException도 RecordNotFoundException도 아니므로 <code>Exception</code> 담당 메서드가 받는다.', st: { handler: 'RestExceptionHandler.handleException' } },
+      { n: 'rest', p: 'res', t: '보낼 곳을 나눈다', b: '<b>개발자용:</b> <code>log.error(..., e)</code>로 스택 트레이스를 로그에 남긴다. <b>사용자용:</b> detail에는 <b>고정 문구</b>만 넣는다. <code>forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, 고정 문구)</code>.', st: { status: '500 Internal Server Error' } },
+      { n: 'json', p: 'res', t: 'JSON으로 쓴다', b: '', st: { resp: 'application/problem+json' } },
+      { n: 'client', p: 'res', t: '500 ProblemDetail', b: '테스트 ⑤는 <code>$.detail</code>에 "SQL"이 <b>없는지</b> 검사한다. 교안 14장 ⚠️ 예시처럼 detail에 <code>e.getMessage()</code>를 넣으면 이 테스트가 실패한다.', json: '{\n  "type": "about:blank",\n  "title": "Internal Server Error",\n  "status": 500,\n  "detail": "(직접 정한 고정 문구)",\n  "instance": "/api/review/1"\n}' }
+    ]},
+    { id: 'none', g: 'cmp', name: 'Advice가 없을 때 (8-1·8-2)', req: 'curl /api/review/9999', badge: '500', labels: { ctrl: 'ReviewRestController' }, steps: [
+      { n: 'client', p: 'req', t: 'curl로 API를 부른다', b: 'RestExceptionHandler가 아직 Advice가 아닌(애너테이션 없음) 지금의 상황이다. 오늘 <code>include-message</code> 실험 때 본 응답이 이 길에서 나왔다.' },
+      { n: 'ds', p: 'req', t: 'detail()을 고른다', b: '' },
+      { n: 'ctrl', p: 'req', t: 'Service를 부른다', b: '' },
+      { n: 'svc', p: 'err', t: 'RecordNotFoundException', b: '8-2 실험 때는 아직 IllegalArgumentException이었다. 어느 쪽이든 이 길은 같다.', st: { ex: 'RecordNotFoundException' } },
+      { n: 'ctrl', p: 'err', t: 'Controller를 빠져나간다', b: '' },
+      { n: 'ds', p: 'err', t: '예외 처리 담당에게 넘긴다', b: '' },
+      { n: 'resolver', p: 'err', t: '맡을 곳이 없다', b: 'RestExceptionHandler는 아직 Advice가 아니다. MvcExceptionHandler는 controller 패키지만 담당한다. Spring 표준 예외도 아니어서 기본 resolver들(<code>ResponseStatusExceptionResolver</code>, <code>DefaultHandlerExceptionResolver</code>)도 처리하지 못한다.', st: { handler: '(없음)' } },
+      { n: 'ds', p: 'err', t: '예외가 Spring 밖으로 나간다', b: 'DispatcherServlet이 예외를 다시 던진다. 서버 콘솔에 스택 트레이스가 찍힌다. 테스트에서는 이 순간이 <code>Servlet Request processing failed</code> 에러로 보인다 (지금 REST ② 실패 메시지).' },
+      { n: 'tomcat', p: 'err', t: 'Tomcat이 /error로 두 번째 요청을 보낸다', b: '상태를 500으로 정하고, 예외 정보를 request 속성에 담아 <code>/error</code>로 <b>내부 forward</b>한다. 클라이언트는 이 두 번째 요청이 있었는지 모른다.', st: { status: '500 Internal Server Error' } },
+      { n: 'ds', p: 'res', t: '/error 요청이 다시 들어온다', b: '두 번째 요청도 DispatcherServlet을 거친다. 이번에 고르는 Controller는 <code>/error</code> 담당이다.' },
+      { n: 'basic', p: 'res', t: 'BasicErrorController가 Accept를 본다', b: '<code>@RequestMapping("/error")</code>. Accept가 <code>text/html</code>이면 <code>errorHtml()</code>이 error/{코드}.jsp를 고르고, 그 외(curl의 <code>*/*</code>)면 <code>error()</code>가 Map을 돌려준다. 어떤 필드를 넣을지는 <code>server.error.include-*</code> 설정과 devtools가 정한다. 우리 코드는 한 줄도 관여하지 않는다.', st: { handler: 'BasicErrorController.error()' } },
+      { n: 'json', p: 'res', t: 'Map을 JSON으로 쓴다', b: '', st: { resp: 'application/json (기본 모양)' } },
+      { n: 'client', p: 'res', t: '500 기본 JSON을 받는다', b: '없는 리뷰인데 <b>500</b>이다. 상태와 내용을 우리가 정하지 못했다. devtools가 켜진 지금 PC에서는 <code>message</code>와 <code>trace</code>까지 붙는다. 8-6이 이 길을 위 REST 시나리오의 길로 바꾼다.', json: '{\n  "timestamp": "2026-11-27T01:13:14.047Z",\n  "status": 500,\n  "error": "Internal Server Error",\n  "path": "/api/review/9999"\n}\n(devtools 사용 중이면 + "message", "trace")' }
+    ]}
+  ];
+
+  var PHASE = { req: '요청', err: '예외', res: '응답' };
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var cur = { g: 'mvc', s: S[0], i: 0 };
+  var dotPos = { x: NODES.client.x, y: NODES.client.y };
+  var anim = null, timer = null;
+
+  // 노드 그리기
+  var nodeEls = {};
+  Object.keys(NODES).forEach(function (k) {
+    var n = NODES[k];
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('class', 'node');
+    var r = document.createElementNS(SVGNS, 'rect');
+    r.setAttribute('x', n.x - HW); r.setAttribute('y', n.y - HH);
+    r.setAttribute('width', HW * 2); r.setAttribute('height', HH * 2); r.setAttribute('rx', 8);
+    var t = document.createElementNS(SVGNS, 'text');
+    t.setAttribute('class', 't'); t.setAttribute('x', n.x); t.setAttribute('y', n.y - 3); t.setAttribute('text-anchor', 'middle');
+    t.textContent = n.t;
+    var s = document.createElementNS(SVGNS, 'text');
+    s.setAttribute('class', 's'); s.setAttribute('x', n.x); s.setAttribute('y', n.y + 13); s.setAttribute('text-anchor', 'middle');
+    s.textContent = n.s;
+    g.appendChild(r); g.appendChild(t); g.appendChild(s);
+    $('nodes').appendChild(g);
+    nodeEls[k] = { g: g, s: s };
+  });
+
+  function edgePoint(c, tx, ty) {
+    var dx = tx - c.x, dy = ty - c.y;
+    if (dx === 0 && dy === 0) return { x: c.x, y: c.y };
+    var sx = dx === 0 ? Infinity : (HW + 4) / Math.abs(dx);
+    var sy = dy === 0 ? Infinity : (HH + 4) / Math.abs(dy);
+    var k = Math.min(sx, sy);
+    return { x: c.x + dx * k, y: c.y + dy * k };
+  }
+
+  function drawTrail() {
+    var tg = $('trail');
+    while (tg.firstChild) tg.removeChild(tg.firstChild);
+    var st = cur.s.steps;
+    for (var i = 1; i <= cur.i; i++) {
+      var a = NODES[st[i - 1].n], b = NODES[st[i].n];
+      if (st[i - 1].n === st[i].n) continue;
+      var len = Math.hypot(b.x - a.x, b.y - a.y);
+      var ox = -(b.y - a.y) / len * 5, oy = (b.x - a.x) / len * 5; // 진행 방향 오른쪽으로 살짝 밀어 왕복선을 분리
+      var A = { x: a.x + ox, y: a.y + oy }, B = { x: b.x + ox, y: b.y + oy };
+      var p1 = edgePoint(A, B.x, B.y), p2 = edgePoint(B, A.x, A.y);
+      var l = document.createElementNS(SVGNS, 'line');
+      l.setAttribute('x1', p1.x); l.setAttribute('y1', p1.y); l.setAttribute('x2', p2.x); l.setAttribute('y2', p2.y);
+      l.setAttribute('class', st[i].p);
+      l.setAttribute('marker-end', 'url(#m-' + st[i].p + ')');
+      if (i < cur.i) l.setAttribute('opacity', '.55');
+      tg.appendChild(l);
+    }
+  }
+
+  function moveDot(to, animate) {
+    if (anim) cancelAnimationFrame(anim);
+    var dot = $('dot');
+    if (!animate || reduce) {
+      dotPos = { x: to.x, y: to.y };
+      dot.setAttribute('transform', 'translate(' + to.x + ',' + (to.y - HH - 2) + ')');
+      return;
+    }
+    var from = { x: dotPos.x, y: dotPos.y }, t0 = null, dur = 520;
+    function frame(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / dur);
+      var e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      var x = from.x + (to.x - from.x) * e, y = from.y + (to.y - from.y) * e;
+      dotPos = { x: x, y: y };
+      dot.setAttribute('transform', 'translate(' + x + ',' + (y - HH - 2) + ')');
+      if (k < 1) anim = requestAnimationFrame(frame);
+    }
+    anim = requestAnimationFrame(frame);
+  }
+
+  function stateAt() {
+    var o = { ex: null, handler: null, status: null, resp: null, json: null };
+    for (var i = 0; i <= cur.i; i++) {
+      var st = cur.s.steps[i].st || {};
+      Object.keys(st).forEach(function (k) { o[k] = st[k]; });
+      if (cur.s.steps[i].json) o.json = cur.s.steps[i].json;
+    }
+    return o;
+  }
+
+  function setVal(id, v) {
+    var el = $(id);
+    el.textContent = v || '—';
+    el.className = v ? '' : 'empty';
+  }
+
+  function render(animate) {
+    var sc = cur.s, step = sc.steps[cur.i];
+    // 탭·칩
+    Array.prototype.forEach.call($('tabs').children, function (b) { b.setAttribute('aria-selected', String(b.dataset.g === cur.g)); });
+    Array.prototype.forEach.call($('chips').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.s === sc.id)); });
+    // 노드 상태
+    var used = {}, seen = {};
+    sc.steps.forEach(function (s) { used[s.n] = true; });
+    for (var i = 0; i < cur.i; i++) seen[sc.steps[i].n] = true;
+    Object.keys(nodeEls).forEach(function (k) {
+      var cls = 'node';
+      if (!used[k]) cls += ' dim';
+      else if (k === step.n) cls += ' on p-' + step.p;
+      else if (seen[k]) cls += ' seen';
+      nodeEls[k].g.setAttribute('class', cls);
+      nodeEls[k].s.textContent = (sc.labels && sc.labels[k]) || NODES[k].s;
+    });
+    drawTrail();
+    $('dot').setAttribute('class', step.p);
+    moveDot(NODES[step.n], animate);
+    // 설명
+    var ph = $('phase'); ph.textContent = PHASE[step.p]; ph.className = 'phase ' + step.p;
+    $('where').textContent = step.w || NODES[step.n].t;
+    $('stepTitle').textContent = step.t;
+    $('stepBody').innerHTML = step.b || '';
+    var o = stateAt();
+    setVal('sEx', o.ex); setVal('sHandler', o.handler); setVal('sStatus', o.status); setVal('sResp', o.resp);
+    var rb = $('respBox');
+    if (o.json && cur.i === sc.steps.length - 1) { rb.textContent = o.json; rb.hidden = false; } else { rb.hidden = true; }
+    // 단계 목록
+    var ol = $('steps'); ol.innerHTML = '';
+    sc.steps.forEach(function (s, idx) {
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.className = idx === cur.i ? 'cur' : (idx < cur.i ? 'done' : '');
+      b.innerHTML = '<span class="n">' + (idx + 1) + '</span><i class="' + s.p + '"></i><span></span>';
+      b.lastChild.textContent = s.t;
+      b.addEventListener('click', function () { stop(); cur.i = idx; render(true); });
+      li.appendChild(b); ol.appendChild(li);
+    });
+    $('counter').textContent = (cur.i + 1) + ' / ' + sc.steps.length;
+    $('prev').disabled = cur.i === 0;
+    $('next').disabled = cur.i === sc.steps.length - 1;
+  }
+
+  function pickGroup(g) {
+    cur.g = g;
+    var chips = $('chips'); chips.innerHTML = '';
+    S.filter(function (s) { return s.g === g; }).forEach(function (s) {
+      var b = document.createElement('button');
+      b.className = 'chip'; b.dataset.s = s.id;
+      var cls = s.badge.charAt(0) === '5' ? 'b5' : (s.badge.charAt(0) === '4' ? 'b4' : 'b3');
+      b.innerHTML = '<span class="badge ' + cls + '">' + s.badge + '</span><span><span class="nm"></span><span class="req"></span></span>';
+      b.querySelector('.nm').textContent = s.name;
+      b.querySelector('.req').textContent = s.req;
+      b.addEventListener('click', function () { pickScenario(s); });
+      chips.appendChild(b);
+    });
+    $('groupNote').textContent = GROUPS.filter(function (x) { return x.id === g; })[0].note;
+    pickScenario(S.filter(function (s) { return s.g === g; })[0]);
+  }
+
+  function pickScenario(s) {
+    stop();
+    cur.s = s; cur.i = 0;
+    moveDot(NODES[s.steps[0].n], false);
+    render(false);
+  }
+
+  function next() { if (cur.i < cur.s.steps.length - 1) { cur.i++; render(true); } else stop(); }
+  function prev() { if (cur.i > 0) { cur.i--; render(true); } }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } $('play').setAttribute('aria-pressed', 'false'); $('play').textContent = '자동 재생'; }
+  function play() {
+    if (timer) { stop(); return; }
+    if (cur.i === cur.s.steps.length - 1) { cur.i = 0; render(false); }
+    $('play').setAttribute('aria-pressed', 'true'); $('play').textContent = '멈춤';
+    timer = setInterval(next, 2200);
+  }
+
+  GROUPS.forEach(function (g) {
+    var b = document.createElement('button');
+    b.className = 'tab'; b.setAttribute('role', 'tab'); b.dataset.g = g.id; b.textContent = g.name;
+    b.addEventListener('click', function () { pickGroup(g.id); });
+    $('tabs').appendChild(b);
+  });
+  $('next').addEventListener('click', function () { stop(); next(); });
+  $('prev').addEventListener('click', function () { stop(); prev(); });
+  $('reset').addEventListener('click', function () { stop(); cur.i = 0; render(false); moveDot(NODES[cur.s.steps[0].n], false); });
+  $('play').addEventListener('click', play);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') { stop(); next(); }
+    else if (e.key === 'ArrowLeft') { stop(); prev(); }
+  });
+
+  pickGroup('mvc');
+})();
+</script>
+</body>
+</html>
